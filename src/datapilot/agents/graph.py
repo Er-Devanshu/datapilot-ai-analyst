@@ -5,6 +5,7 @@ from functools import partial
 from langgraph.graph import END, START, StateGraph
 
 from datapilot.agents.nodes import (
+    analysis_node,
     schema_node,
     sql_execution_node,
     sql_generation_node,
@@ -70,6 +71,11 @@ def build_datapilot_graph(
             sql_execution_node,
             executor=executor,
         ),
+    )
+
+    graph.add_node(
+        "analyze_result",
+        analysis_node,
     )
 
     def route_after_validation(
@@ -141,6 +147,11 @@ def build_datapilot_graph(
 
     graph.add_edge(
         "execute_sql",
+        "analyze_result",
+    )
+
+    graph.add_edge(
+        "analyze_result",
         END,
     )
 

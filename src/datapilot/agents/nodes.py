@@ -8,6 +8,7 @@ from datapilot.sql.executor import SQLExecutor
 from datapilot.sql.generator import SQLGenerator
 from datapilot.sql.repair import SQLRepairer
 from datapilot.sql.validator import SQLValidator
+from datapilot.analytics.analyzer import ResultAnalyzer
 
 
 def schema_node(
@@ -210,4 +211,25 @@ def sql_execution_node(
         "result": result.dataframe,
         "row_count": result.row_count,
         "status": "sql_executed",
+    }
+def analysis_node(
+    state: DataPilotState,
+) -> DataPilotState:
+    """Analyze the executed query result deterministically."""
+
+    result = state.get("result")
+
+    if result is None:
+        raise ValueError(
+            "Agent state must contain an executed result."
+        )
+
+    analysis = ResultAnalyzer().analyze(
+        result
+    )
+
+    return {
+        **state,
+        "analysis": analysis,
+        "status": "analysis_complete",
     }

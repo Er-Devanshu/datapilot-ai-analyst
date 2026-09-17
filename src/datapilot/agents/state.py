@@ -26,6 +26,9 @@ class DataPilotState(TypedDict, total=False):
     result: Any
     row_count: int
 
+    # Analytical reasoning
+    analysis: Any
+
     # Agent lifecycle
     status: str
     error: str
