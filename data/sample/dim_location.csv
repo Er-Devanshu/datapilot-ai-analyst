@@ -1,0 +1,13 @@
+location_key,location_id,region,country,state,city,market
+1,LOC-001,North,India,Delhi,Delhi,Metro
+2,LOC-002,North,India,Punjab,Chandigarh,Growth
+3,LOC-003,West,India,Gujarat,Ahmedabad,Growth
+4,LOC-004,West,India,Maharashtra,Mumbai,Metro
+5,LOC-005,West,India,Rajasthan,Jaipur,Growth
+6,LOC-006,South,India,Karnataka,Bengaluru,Metro
+7,LOC-007,South,India,Tamil Nadu,Chennai,Metro
+8,LOC-008,South,India,Telangana,Hyderabad,Metro
+9,LOC-009,East,India,West Bengal,Kolkata,Metro
+10,LOC-010,East,India,Odisha,Bhubaneswar,Growth
+11,LOC-011,Central,India,Madhya Pradesh,Indore,Growth
+12,LOC-012,Central,India,Madhya Pradesh,Bhopal,Growth

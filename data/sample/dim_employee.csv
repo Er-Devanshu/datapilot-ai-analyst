@@ -1,0 +1,101 @@
+employee_key,employee_id,employee_name,job_title,department_key,location_key
+1,EMP-0001,Employee 0001,Customer Success Manager,5,9
+2,EMP-0002,Employee 0002,Business Analyst,1,5
+3,EMP-0003,Employee 0003,Operations Manager,5,7
+4,EMP-0004,Employee 0004,Operations Manager,1,6
+5,EMP-0005,Employee 0005,Business Analyst,6,4
+6,EMP-0006,Employee 0006,Account Manager,3,3
+7,EMP-0007,Employee 0007,Business Analyst,4,10
+8,EMP-0008,Employee 0008,Customer Success Manager,1,3
+9,EMP-0009,Employee 0009,Account Manager,2,10
+10,EMP-0010,Employee 0010,Sales Executive,1,11
+11,EMP-0011,Employee 0011,Customer Success Manager,2,4
+12,EMP-0012,Employee 0012,Business Analyst,4,12
+13,EMP-0013,Employee 0013,Sales Manager,1,6
+14,EMP-0014,Employee 0014,Business Analyst,4,7
+15,EMP-0015,Employee 0015,Customer Success Manager,5,4
+16,EMP-0016,Employee 0016,Sales Manager,5,5
+17,EMP-0017,Employee 0017,Sales Manager,2,4
+18,EMP-0018,Employee 0018,Operations Manager,6,10
+19,EMP-0019,Employee 0019,Account Manager,1,2
+20,EMP-0020,Employee 0020,Sales Manager,4,11
+21,EMP-0021,Employee 0021,Customer Success Manager,1,9
+22,EMP-0022,Employee 0022,Account Manager,2,7
+23,EMP-0023,Employee 0023,Sales Executive,3,7
+24,EMP-0024,Employee 0024,Account Manager,4,6
+25,EMP-0025,Employee 0025,Operations Manager,2,1
+26,EMP-0026,Employee 0026,Business Analyst,2,9
+27,EMP-0027,Employee 0027,Sales Executive,4,12
+28,EMP-0028,Employee 0028,Sales Executive,2,11
+29,EMP-0029,Employee 0029,Business Analyst,2,3
+30,EMP-0030,Employee 0030,Operations Manager,6,5
+31,EMP-0031,Employee 0031,Sales Manager,5,3
+32,EMP-0032,Employee 0032,Account Manager,5,3
+33,EMP-0033,Employee 0033,Operations Manager,3,12
+34,EMP-0034,Employee 0034,Sales Executive,6,3
+35,EMP-0035,Employee 0035,Sales Executive,5,7
+36,EMP-0036,Employee 0036,Customer Success Manager,1,1
+37,EMP-0037,Employee 0037,Business Analyst,6,5
+38,EMP-0038,Employee 0038,Operations Manager,6,11
+39,EMP-0039,Employee 0039,Business Analyst,5,7
+40,EMP-0040,Employee 0040,Operations Manager,4,7
+41,EMP-0041,Employee 0041,Sales Manager,4,10
+42,EMP-0042,Employee 0042,Customer Success Manager,4,2
+43,EMP-0043,Employee 0043,Business Analyst,2,1
+44,EMP-0044,Employee 0044,Sales Executive,4,12
+45,EMP-0045,Employee 0045,Business Analyst,3,2
+46,EMP-0046,Employee 0046,Operations Manager,1,11
+47,EMP-0047,Employee 0047,Operations Manager,6,4
+48,EMP-0048,Employee 0048,Sales Executive,2,10
+49,EMP-0049,Employee 0049,Account Manager,6,2
+50,EMP-0050,Employee 0050,Sales Executive,2,10
+51,EMP-0051,Employee 0051,Business Analyst,3,8
+52,EMP-0052,Employee 0052,Business Analyst,4,7
+53,EMP-0053,Employee 0053,Sales Executive,2,7
+54,EMP-0054,Employee 0054,Sales Executive,3,2
+55,EMP-0055,Employee 0055,Operations Manager,1,2
+56,EMP-0056,Employee 0056,Business Analyst,2,5
+57,EMP-0057,Employee 0057,Account Manager,2,10
+58,EMP-0058,Employee 0058,Operations Manager,2,9
+59,EMP-0059,Employee 0059,Operations Manager,4,7
+60,EMP-0060,Employee 0060,Customer Success Manager,3,5
+61,EMP-0061,Employee 0061,Business Analyst,6,9
+62,EMP-0062,Employee 0062,Sales Executive,3,9
+63,EMP-0063,Employee 0063,Account Manager,6,10
+64,EMP-0064,Employee 0064,Customer Success Manager,1,7
+65,EMP-0065,Employee 0065,Business Analyst,4,11
+66,EMP-0066,Employee 0066,Sales Manager,4,9
+67,EMP-0067,Employee 0067,Operations Manager,5,5
+68,EMP-0068,Employee 0068,Customer Success Manager,1,6
+69,EMP-0069,Employee 0069,Business Analyst,1,6
+70,EMP-0070,Employee 0070,Business Analyst,4,2
+71,EMP-0071,Employee 0071,Account Manager,2,8
+72,EMP-0072,Employee 0072,Account Manager,4,9
+73,EMP-0073,Employee 0073,Operations Manager,2,11
+74,EMP-0074,Employee 0074,Sales Executive,1,1
+75,EMP-0075,Employee 0075,Account Manager,6,3
+76,EMP-0076,Employee 0076,Operations Manager,3,1
+77,EMP-0077,Employee 0077,Sales Manager,1,6
+78,EMP-0078,Employee 0078,Business Analyst,4,4
+79,EMP-0079,Employee 0079,Operations Manager,4,4
+80,EMP-0080,Employee 0080,Sales Manager,1,12
+81,EMP-0081,Employee 0081,Operations Manager,2,9
+82,EMP-0082,Employee 0082,Operations Manager,4,1
+83,EMP-0083,Employee 0083,Customer Success Manager,6,12
+84,EMP-0084,Employee 0084,Customer Success Manager,6,9
+85,EMP-0085,Employee 0085,Sales Executive,3,3
+86,EMP-0086,Employee 0086,Account Manager,5,10
+87,EMP-0087,Employee 0087,Business Analyst,5,2
+88,EMP-0088,Employee 0088,Account Manager,6,6
+89,EMP-0089,Employee 0089,Business Analyst,3,3
+90,EMP-0090,Employee 0090,Operations Manager,5,9
+91,EMP-0091,Employee 0091,Sales Manager,4,12
+92,EMP-0092,Employee 0092,Business Analyst,3,4
+93,EMP-0093,Employee 0093,Business Analyst,3,8
+94,EMP-0094,Employee 0094,Sales Executive,2,10
+95,EMP-0095,Employee 0095,Sales Manager,3,7
+96,EMP-0096,Employee 0096,Sales Manager,5,3
+97,EMP-0097,Employee 0097,Operations Manager,2,5
+98,EMP-0098,Employee 0098,Business Analyst,6,3
+99,EMP-0099,Employee 0099,Business Analyst,1,1
+100,EMP-0100,Employee 0100,Operations Manager,5,5

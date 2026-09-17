@@ -1,0 +1,7 @@
+department_key,department_id,department_name,department_group
+1,DEPT-001,Sales,Commercial
+2,DEPT-002,Enterprise Sales,Commercial
+3,DEPT-003,Retail,Commercial
+4,DEPT-004,Operations,Operations
+5,DEPT-005,Finance,Corporate
+6,DEPT-006,Customer Success,Customer
