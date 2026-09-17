@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "datapilot-ai-analyst"
+version = "0.1.0"
+description = "An agentic AI Data Analyst for natural-language data exploration and analysis."
+readme = "Readme.md"
+requires-python = ">=3.12,<3.13"
+
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -1,0 +1,38 @@
+# DataPilot - Core Runtime Dependencies
+
+# Local LLM inference - Apple Silicon
+mlx>=0.32,<0.33
+mlx-lm>=0.31,<0.32
+
+# Hugging Face ecosystem
+transformers>=5.0,<6.0
+huggingface-hub>=1.0,<2.0
+safetensors>=0.7,<1.0
+
+# Agent orchestration
+langgraph>=1.0,<2.0
+langchain-core>=1.0,<2.0
+
+# Data & analytics
+duckdb>=1.4,<2.0
+pandas>=2.2,<3.0
+polars>=1.0,<2.0
+pyarrow>=18.0,<23.0
+
+# SQL
+sqlglot>=27.0,<30.0
+
+# API
+fastapi>=0.115,<1.0
+uvicorn[standard]>=0.34,<1.0
+pydantic>=2.10,<3.0
+
+# Visualization
+plotly>=6.0,<7.0
+
+# Development & testing
+pytest>=8.0,<9.0
+pytest-asyncio>=0.25,<1.0
+httpx>=0.27,<1.0
+jupyter>=1.1,<2.0
+ipykernel>=6.29,<7.0
