@@ -6,6 +6,8 @@ from langgraph.graph import END, START, StateGraph
 
 from datapilot.agents.nodes import (
     analysis_node,
+    answer_composer_node,
+    evidence_node,
     schema_node,
     sql_execution_node,
     sql_generation_node,
@@ -76,6 +78,19 @@ def build_datapilot_graph(
     graph.add_node(
         "analyze_result",
         analysis_node,
+    )
+
+    graph.add_node(
+        "build_evidence",
+        evidence_node,
+    )
+
+    graph.add_node(
+        "compose_answer",
+        partial(
+            answer_composer_node,
+            llm=llm,
+        ),
     )
 
     def route_after_validation(
@@ -152,6 +167,16 @@ def build_datapilot_graph(
 
     graph.add_edge(
         "analyze_result",
+        "build_evidence",
+    )
+
+    graph.add_edge(
+        "build_evidence",
+        "compose_answer",
+    )
+
+    graph.add_edge(
+        "compose_answer",
         END,
     )
 

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 import pandas as pd
 
@@ -20,6 +19,7 @@ class Evidence:
     numeric_summaries: tuple[NumericSummary, ...]
     category_summaries: tuple[CategorySummary, ...]
     result_columns: tuple[str, ...]
+    currency: str = "INR"
 
     def to_prompt_text(self) -> str:
         """Convert evidence into deterministic prompt context."""
@@ -27,6 +27,7 @@ class Evidence:
         lines = [
             "EVIDENCE:",
             f"Result rows: {self.row_count:,}",
+            f"Currency: {self.currency}",
             "",
             "NUMERIC SUMMARIES:",
         ]
@@ -54,17 +55,15 @@ class Evidence:
 
         if self.category_summaries:
             for summary in self.category_summaries:
-                lines.append(
-                    f"- Category column: {summary.category_column}"
-                )
-                lines.append(
-                    f"  Measure column: {summary.measure_column}"
-                )
-                lines.append(
-                    f"  Top categories: {summary.top_categories}"
-                )
-                lines.append(
-                    f"  Bottom categories: {summary.bottom_categories}"
+                lines.extend(
+                    [
+                        f"- Dimension: {summary.dimension}",
+                        f"  Measure: {summary.measure}",
+                        f"  Top category: {summary.top_category}",
+                        f"  Top value: {summary.top_value}",
+                        f"  Bottom category: {summary.bottom_category}",
+                        f"  Bottom value: {summary.bottom_value}",
+                    ]
                 )
         else:
             lines.append("- None")
@@ -82,6 +81,17 @@ class Evidence:
 
 class EvidenceBuilder:
     """Build grounded evidence from deterministic query analysis."""
+
+    def __init__(
+        self,
+        currency: str = "INR",
+    ) -> None:
+        if not currency.strip():
+            raise ValueError(
+                "Currency cannot be empty."
+            )
+
+        self.currency = currency.strip()
 
     def build(
         self,
@@ -112,4 +122,5 @@ class EvidenceBuilder:
                 str(column)
                 for column in dataframe.columns
             ),
+            currency=self.currency,
         )

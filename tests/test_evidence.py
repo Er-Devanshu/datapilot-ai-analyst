@@ -13,7 +13,9 @@ def test_evidence_builds_from_analysis() -> None:
         }
     )
 
-    analysis = ResultAnalyzer().analyze(dataframe)
+    analysis = ResultAnalyzer().analyze(
+        dataframe
+    )
 
     evidence = EvidenceBuilder().build(
         dataframe=dataframe,
@@ -21,13 +23,37 @@ def test_evidence_builds_from_analysis() -> None:
     )
 
     assert evidence.row_count == 3
+
     assert evidence.result_columns == (
         "region",
         "revenue",
     )
 
-    assert len(evidence.numeric_summaries) == 1
-    assert evidence.numeric_summaries[0].column == "revenue"
+    assert evidence.currency == "INR"
+
+    assert len(
+        evidence.numeric_summaries
+    ) == 1
+
+    assert (
+        evidence.numeric_summaries[0].column
+        == "revenue"
+    )
+
+    assert len(
+        evidence.category_summaries
+    ) == 1
+
+    category_summary = (
+        evidence.category_summaries[0]
+    )
+
+    assert category_summary.dimension == "region"
+    assert category_summary.measure == "revenue"
+    assert category_summary.top_category == "West"
+    assert category_summary.top_value == 400.0
+    assert category_summary.bottom_category == "East"
+    assert category_summary.bottom_value == 200.0
 
 
 def test_evidence_rejects_mismatched_analysis() -> None:
@@ -67,12 +93,26 @@ def test_evidence_can_analyze_without_precomputed_analysis() -> None:
     )
 
     assert evidence.row_count == 3
-    assert len(evidence.numeric_summaries) == 1
+
+    assert len(
+        evidence.numeric_summaries
+    ) == 1
+
+    summary = (
+        evidence.numeric_summaries[0]
+    )
+
+    assert summary.column == "revenue"
+    assert summary.total == 600.0
+    assert summary.average == 200.0
+    assert summary.minimum == 100.0
+    assert summary.maximum == 300.0
 
 
 def test_evidence_prompt_text_contains_grounded_facts() -> None:
     dataframe = pd.DataFrame(
         {
+            "region": ["West", "East", "West"],
             "revenue": [100.0, 200.0, 300.0],
         }
     )
@@ -83,10 +123,68 @@ def test_evidence_prompt_text_contains_grounded_facts() -> None:
 
     prompt_text = evidence.to_prompt_text()
 
+    assert "EVIDENCE:" in prompt_text
     assert "Result rows: 3" in prompt_text
+    assert "Currency: INR" in prompt_text
+
     assert "Column: revenue" in prompt_text
     assert "Total: 600.0" in prompt_text
     assert "Average: 200.0" in prompt_text
     assert "Minimum: 100.0" in prompt_text
     assert "Maximum: 300.0" in prompt_text
-    assert "revenue" in prompt_text
+
+    assert "Dimension: region" in prompt_text
+    assert "Measure: revenue" in prompt_text
+    assert "Top category: West" in prompt_text
+    assert "Top value: 400.0" in prompt_text
+    assert "Bottom category: East" in prompt_text
+    assert "Bottom value: 200.0" in prompt_text
+
+    assert "RESULT COLUMNS:" in prompt_text
+    assert "region, revenue" in prompt_text
+
+
+def test_evidence_defaults_to_inr_currency() -> None:
+    dataframe = pd.DataFrame(
+        {
+            "revenue": [100.0, 200.0],
+        }
+    )
+
+    evidence = EvidenceBuilder().build(
+        dataframe=dataframe,
+    )
+
+    assert evidence.currency == "INR"
+
+    prompt_text = evidence.to_prompt_text()
+
+    assert "Currency: INR" in prompt_text
+
+
+def test_evidence_supports_explicit_currency() -> None:
+    dataframe = pd.DataFrame(
+        {
+            "revenue": [100.0, 200.0],
+        }
+    )
+
+    evidence = EvidenceBuilder(
+        currency="USD"
+    ).build(
+        dataframe=dataframe,
+    )
+
+    assert evidence.currency == "USD"
+
+    prompt_text = evidence.to_prompt_text()
+
+    assert "Currency: USD" in prompt_text
+
+
+def test_evidence_rejects_empty_currency() -> None:
+    with pytest.raises(
+        ValueError,
+        match="Currency cannot be empty",
+    ):
+        EvidenceBuilder(currency=" ")

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from datapilot.agents.state import DataPilotState
+from datapilot.analytics.analyzer import ResultAnalyzer
+from datapilot.analytics.answer import AnswerComposer
+from datapilot.analytics.evidence import EvidenceBuilder
 from datapilot.data.context import SchemaContextBuilder
 from datapilot.data.schema import SchemaInspector
 from datapilot.llm.local import LocalLLM
@@ -8,7 +11,6 @@ from datapilot.sql.executor import SQLExecutor
 from datapilot.sql.generator import SQLGenerator
 from datapilot.sql.repair import SQLRepairer
 from datapilot.sql.validator import SQLValidator
-from datapilot.analytics.analyzer import ResultAnalyzer
 
 
 def schema_node(
@@ -127,8 +129,16 @@ def sql_repair_node(
 ) -> DataPilotState:
     """Repair invalid SQL using validation feedback."""
 
-    question = state.get("question", "").strip()
-    sql = state.get("sql", "").strip()
+    question = state.get(
+        "question",
+        "",
+    ).strip()
+
+    sql = state.get(
+        "sql",
+        "",
+    ).strip()
+
     schema_context = state.get(
         "schema_context",
         "",
@@ -169,7 +179,9 @@ def sql_repair_node(
     result = repairer.repair(
         question=question,
         sql=sql,
-        errors=tuple(validation_errors),
+        errors=tuple(
+            validation_errors
+        ),
         schema_context=schema_context,
     )
 
@@ -187,7 +199,11 @@ def sql_execution_node(
 ) -> DataPilotState:
     """Execute validated SQL through the security boundary."""
 
-    sql = state.get("sql", "").strip()
+    sql = state.get(
+        "sql",
+        "",
+    ).strip()
+
     sql_valid = state.get(
         "sql_valid",
         False,
@@ -212,6 +228,8 @@ def sql_execution_node(
         "row_count": result.row_count,
         "status": "sql_executed",
     }
+
+
 def analysis_node(
     state: DataPilotState,
 ) -> DataPilotState:
@@ -232,4 +250,73 @@ def analysis_node(
         **state,
         "analysis": analysis,
         "status": "analysis_complete",
+    }
+
+
+def evidence_node(
+    state: DataPilotState,
+) -> DataPilotState:
+    """Build grounded evidence from deterministic analysis."""
+
+    result = state.get("result")
+    analysis = state.get("analysis")
+
+    if result is None:
+        raise ValueError(
+            "Agent state must contain an executed result."
+        )
+
+    if analysis is None:
+        raise ValueError(
+            "Agent state must contain analysis."
+        )
+
+    evidence = EvidenceBuilder().build(
+        dataframe=result,
+        analysis=analysis,
+    )
+
+    return {
+        **state,
+        "evidence": evidence,
+        "status": "evidence_ready",
+    }
+
+
+def answer_composer_node(
+    state: DataPilotState,
+    llm: LocalLLM,
+) -> DataPilotState:
+    """Compose a business answer from grounded evidence."""
+
+    question = state.get(
+        "question",
+        "",
+    ).strip()
+
+    evidence = state.get(
+        "evidence"
+    )
+
+    if not question:
+        raise ValueError(
+            "Agent state must contain a question."
+        )
+
+    if evidence is None:
+        raise ValueError(
+            "Agent state must contain evidence."
+        )
+
+    composer = AnswerComposer(llm)
+
+    result = composer.compose(
+        question=question,
+        evidence=evidence,
+    )
+
+    return {
+        **state,
+        "answer": result.answer,
+        "status": "answer_composed",
     }

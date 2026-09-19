@@ -28,6 +28,10 @@ class DataPilotState(TypedDict, total=False):
 
     # Analytical reasoning
     analysis: Any
+    evidence: Any
+
+    # Final answer
+    answer: str
 
     # Agent lifecycle
     status: str
