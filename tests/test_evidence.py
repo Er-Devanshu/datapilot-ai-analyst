@@ -3,6 +3,9 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
+from datapilot.analytics.contribution import (
+    ContributionAnalyzer,
+)
 from datapilot.analytics.evidence import EvidenceBuilder
 from datapilot.analytics.period import PeriodComparator
 from datapilot.analytics.trend import TrendAnalyzer
@@ -262,3 +265,79 @@ def test_evidence_prompt_contains_variance() -> None:
     assert "Absolute variance: 200.0" in prompt_text
     assert "Percentage variance: 20.0" in prompt_text
     assert "Direction: above_reference" in prompt_text
+
+
+def test_evidence_includes_contribution() -> None:
+    dataframe = pd.DataFrame(
+        {
+            "region": [
+                "North",
+                "West",
+                "South",
+                "East",
+            ],
+            "revenue_change": [
+                -80,
+                -50,
+                -30,
+                10,
+            ],
+        }
+    )
+
+    contribution = ContributionAnalyzer().analyze(
+        dataframe=dataframe,
+        dimension_column="region",
+        value_column="revenue_change",
+    )
+
+    evidence = EvidenceBuilder().build(
+        dataframe=dataframe,
+        contribution=contribution,
+    )
+
+    assert evidence.contribution is contribution
+    assert evidence.contribution.total_change == -150
+    assert len(
+        evidence.contribution.contributions
+    ) == 4
+
+
+def test_evidence_prompt_contains_contribution() -> None:
+    dataframe = pd.DataFrame(
+        {
+            "region": [
+                "North",
+                "West",
+                "South",
+                "East",
+            ],
+            "revenue_change": [
+                -80,
+                -50,
+                -30,
+                10,
+            ],
+        }
+    )
+
+    contribution = ContributionAnalyzer().analyze(
+        dataframe=dataframe,
+        dimension_column="region",
+        value_column="revenue_change",
+    )
+
+    evidence = EvidenceBuilder().build(
+        dataframe=dataframe,
+        contribution=contribution,
+    )
+
+    prompt_text = evidence.to_prompt_text()
+
+    assert "CONTRIBUTION ANALYSIS:" in prompt_text
+    assert "Dimension column: region" in prompt_text
+    assert "Value column: revenue_change" in prompt_text
+    assert "Total change: -150.0" in prompt_text
+    assert "Contributions:" in prompt_text
+    assert "Category: East" in prompt_text
+    assert "Category: North" in prompt_text

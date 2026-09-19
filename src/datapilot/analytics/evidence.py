@@ -9,6 +9,7 @@ from datapilot.analytics.analyzer import (
     CategorySummary,
     NumericSummary,
 )
+from datapilot.analytics.contribution import ContributionResult
 from datapilot.analytics.period import PeriodComparison
 from datapilot.analytics.trend import TrendResult
 from datapilot.analytics.variance import VarianceResult
@@ -26,6 +27,7 @@ class Evidence:
     trend: TrendResult | None = None
     period_comparison: PeriodComparison | None = None
     variance: VarianceResult | None = None
+    contribution: ContributionResult | None = None
 
     def to_prompt_text(self) -> str:
         """Convert evidence into deterministic prompt context."""
@@ -151,6 +153,41 @@ class Evidence:
         lines.extend(
             [
                 "",
+                "CONTRIBUTION ANALYSIS:",
+            ]
+        )
+
+        if self.contribution is not None:
+            contribution = self.contribution
+
+            lines.extend(
+                [
+                    f"- Dimension column: "
+                    f"{contribution.dimension_column}",
+                    f"- Value column: "
+                    f"{contribution.value_column}",
+                    f"- Total change: "
+                    f"{contribution.total_change}",
+                ]
+            )
+
+            lines.append("- Contributions:")
+
+            for item in contribution.contributions:
+                lines.extend(
+                    [
+                        f"  - Category: {item.category}",
+                        f"    Value: {item.value}",
+                        f"    Contribution percentage: "
+                        f"{item.contribution_percentage}",
+                    ]
+                )
+        else:
+            lines.append("- None")
+
+        lines.extend(
+            [
+                "",
                 "RESULT COLUMNS:",
                 f"- {', '.join(self.result_columns)}",
             ]
@@ -180,6 +217,7 @@ class EvidenceBuilder:
         trend: TrendResult | None = None,
         period_comparison: PeriodComparison | None = None,
         variance: VarianceResult | None = None,
+        contribution: ContributionResult | None = None,
     ) -> Evidence:
         """Build evidence from deterministic analytical results."""
 
@@ -212,4 +250,5 @@ class EvidenceBuilder:
             trend=trend,
             period_comparison=period_comparison,
             variance=variance,
+            contribution=contribution,
         )
