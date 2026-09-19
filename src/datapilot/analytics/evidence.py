@@ -11,6 +11,7 @@ from datapilot.analytics.analyzer import (
 )
 from datapilot.analytics.period import PeriodComparison
 from datapilot.analytics.trend import TrendResult
+from datapilot.analytics.variance import VarianceResult
 
 
 @dataclass(frozen=True)
@@ -24,6 +25,7 @@ class Evidence:
     currency: str = "INR"
     trend: TrendResult | None = None
     period_comparison: PeriodComparison | None = None
+    variance: VarianceResult | None = None
 
     def to_prompt_text(self) -> str:
         """Convert evidence into deterministic prompt context."""
@@ -126,6 +128,29 @@ class Evidence:
         lines.extend(
             [
                 "",
+                "VARIANCE ANALYSIS:",
+            ]
+        )
+
+        if self.variance is not None:
+            variance = self.variance
+
+            lines.extend(
+                [
+                    f"- Actual value: {variance.actual_value}",
+                    f"- Reference value: {variance.reference_value}",
+                    f"- Absolute variance: {variance.absolute_variance}",
+                    f"- Percentage variance: "
+                    f"{variance.percentage_variance}",
+                    f"- Direction: {variance.direction}",
+                ]
+            )
+        else:
+            lines.append("- None")
+
+        lines.extend(
+            [
+                "",
                 "RESULT COLUMNS:",
                 f"- {', '.join(self.result_columns)}",
             ]
@@ -154,6 +179,7 @@ class EvidenceBuilder:
         analysis: AnalysisResult | None = None,
         trend: TrendResult | None = None,
         period_comparison: PeriodComparison | None = None,
+        variance: VarianceResult | None = None,
     ) -> Evidence:
         """Build evidence from deterministic analytical results."""
 
@@ -185,4 +211,5 @@ class EvidenceBuilder:
             currency=self.currency,
             trend=trend,
             period_comparison=period_comparison,
+            variance=variance,
         )
