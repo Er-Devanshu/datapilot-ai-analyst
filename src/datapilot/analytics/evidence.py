@@ -9,6 +9,8 @@ from datapilot.analytics.analyzer import (
     CategorySummary,
     NumericSummary,
 )
+from datapilot.analytics.period import PeriodComparison
+from datapilot.analytics.trend import TrendResult
 
 
 @dataclass(frozen=True)
@@ -20,6 +22,8 @@ class Evidence:
     category_summaries: tuple[CategorySummary, ...]
     result_columns: tuple[str, ...]
     currency: str = "INR"
+    trend: TrendResult | None = None
+    period_comparison: PeriodComparison | None = None
 
     def to_prompt_text(self) -> str:
         """Convert evidence into deterministic prompt context."""
@@ -71,6 +75,57 @@ class Evidence:
         lines.extend(
             [
                 "",
+                "TREND ANALYSIS:",
+            ]
+        )
+
+        if self.trend is not None:
+            lines.extend(
+                [
+                    f"- Period column: {self.trend.period_column}",
+                    f"- Value column: {self.trend.value_column}",
+                    f"- First value: {self.trend.first_value}",
+                    f"- Last value: {self.trend.last_value}",
+                    f"- Absolute change: {self.trend.absolute_change}",
+                    f"- Percentage change: {self.trend.percentage_change}",
+                    f"- Direction: {self.trend.direction}",
+                ]
+            )
+
+            lines.append("- Trend points:")
+
+            for point in self.trend.points:
+                lines.append(
+                    f"  - {point.period}: {point.value}"
+                )
+        else:
+            lines.append("- None")
+
+        lines.extend(
+            [
+                "",
+                "PERIOD COMPARISON:",
+            ]
+        )
+
+        if self.period_comparison is not None:
+            comparison = self.period_comparison
+
+            lines.extend(
+                [
+                    f"- Reference value: {comparison.value_a}",
+                    f"- Current value: {comparison.value_b}",
+                    f"- Absolute change: {comparison.absolute_change}",
+                    f"- Percentage change: {comparison.percentage_change}",
+                    f"- Direction: {comparison.direction}",
+                ]
+            )
+        else:
+            lines.append("- None")
+
+        lines.extend(
+            [
+                "",
                 "RESULT COLUMNS:",
                 f"- {', '.join(self.result_columns)}",
             ]
@@ -80,7 +135,7 @@ class Evidence:
 
 
 class EvidenceBuilder:
-    """Build grounded evidence from deterministic query analysis."""
+    """Build grounded evidence from deterministic analysis."""
 
     def __init__(
         self,
@@ -97,17 +152,22 @@ class EvidenceBuilder:
         self,
         dataframe: pd.DataFrame,
         analysis: AnalysisResult | None = None,
+        trend: TrendResult | None = None,
+        period_comparison: PeriodComparison | None = None,
     ) -> Evidence:
-        """Build evidence from a query result and its analysis."""
+        """Build evidence from deterministic analytical results."""
 
         if analysis is None:
             from datapilot.analytics.analyzer import ResultAnalyzer
 
-            analysis = ResultAnalyzer().analyze(dataframe)
+            analysis = ResultAnalyzer().analyze(
+                dataframe
+            )
 
         if analysis.row_count != len(dataframe):
             raise ValueError(
-                "Analysis row count does not match the query result."
+                "Analysis row count does not match "
+                "the query result."
             )
 
         return Evidence(
@@ -123,4 +183,6 @@ class EvidenceBuilder:
                 for column in dataframe.columns
             ),
             currency=self.currency,
+            trend=trend,
+            period_comparison=period_comparison,
         )

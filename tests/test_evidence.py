@@ -3,6 +3,8 @@ import pytest
 
 from datapilot.analytics.analyzer import ResultAnalyzer
 from datapilot.analytics.evidence import EvidenceBuilder
+from datapilot.analytics.period import PeriodComparator
+from datapilot.analytics.trend import TrendAnalyzer
 
 
 def test_evidence_builds_from_analysis() -> None:
@@ -23,12 +25,10 @@ def test_evidence_builds_from_analysis() -> None:
     )
 
     assert evidence.row_count == 3
-
     assert evidence.result_columns == (
         "region",
         "revenue",
     )
-
     assert evidence.currency == "INR"
 
     assert len(
@@ -93,7 +93,6 @@ def test_evidence_can_analyze_without_precomputed_analysis() -> None:
     )
 
     assert evidence.row_count == 3
-
     assert len(
         evidence.numeric_summaries
     ) == 1
@@ -140,6 +139,8 @@ def test_evidence_prompt_text_contains_grounded_facts() -> None:
     assert "Bottom category: East" in prompt_text
     assert "Bottom value: 200.0" in prompt_text
 
+    assert "TREND ANALYSIS:" in prompt_text
+    assert "PERIOD COMPARISON:" in prompt_text
     assert "RESULT COLUMNS:" in prompt_text
     assert "region, revenue" in prompt_text
 
@@ -157,9 +158,10 @@ def test_evidence_defaults_to_inr_currency() -> None:
 
     assert evidence.currency == "INR"
 
-    prompt_text = evidence.to_prompt_text()
-
-    assert "Currency: INR" in prompt_text
+    assert (
+        "Currency: INR"
+        in evidence.to_prompt_text()
+    )
 
 
 def test_evidence_supports_explicit_currency() -> None:
@@ -177,9 +179,10 @@ def test_evidence_supports_explicit_currency() -> None:
 
     assert evidence.currency == "USD"
 
-    prompt_text = evidence.to_prompt_text()
-
-    assert "Currency: USD" in prompt_text
+    assert (
+        "Currency: USD"
+        in evidence.to_prompt_text()
+    )
 
 
 def test_evidence_rejects_empty_currency() -> None:
@@ -187,4 +190,78 @@ def test_evidence_rejects_empty_currency() -> None:
         ValueError,
         match="Currency cannot be empty",
     ):
-        EvidenceBuilder(currency=" ")
+        EvidenceBuilder(
+            currency=" "
+        )
+
+
+def test_evidence_includes_trend_analysis() -> None:
+    dataframe = pd.DataFrame(
+        {
+            "month": [
+                "2025-01",
+                "2025-02",
+                "2025-03",
+            ],
+            "revenue": [
+                100.0,
+                125.0,
+                150.0,
+            ],
+        }
+    )
+
+    trend = TrendAnalyzer().analyze(
+        dataframe=dataframe,
+        period_column="month",
+        value_column="revenue",
+    )
+
+    evidence = EvidenceBuilder().build(
+        dataframe=dataframe,
+        trend=trend,
+    )
+
+    assert evidence.trend is trend
+
+    prompt_text = evidence.to_prompt_text()
+
+    assert "Direction: increasing" in prompt_text
+    assert "First value: 100.0" in prompt_text
+    assert "Last value: 150.0" in prompt_text
+    assert "Absolute change: 50.0" in prompt_text
+    assert "Percentage change: 50.0" in prompt_text
+
+
+def test_evidence_includes_period_comparison() -> None:
+    dataframe = pd.DataFrame(
+        {
+            "revenue": [
+                100.0,
+                125.0,
+            ],
+        }
+    )
+
+    comparison = PeriodComparator().compare(
+        value_a=100.0,
+        value_b=125.0,
+    )
+
+    evidence = EvidenceBuilder().build(
+        dataframe=dataframe,
+        period_comparison=comparison,
+    )
+
+    assert (
+        evidence.period_comparison
+        is comparison
+    )
+
+    prompt_text = evidence.to_prompt_text()
+
+    assert "Reference value: 100.0" in prompt_text
+    assert "Current value: 125.0" in prompt_text
+    assert "Absolute change: 25.0" in prompt_text
+    assert "Percentage change: 25.0" in prompt_text
+    assert "Direction: increased" in prompt_text
