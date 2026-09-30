@@ -11,6 +11,8 @@ from datapilot.analytics.analyzer import (
 )
 from datapilot.analytics.contribution import ContributionResult
 from datapilot.analytics.period import PeriodComparison
+from datapilot.analytics.root_cause import RootCauseResult
+from datapilot.analytics.segmentation import SegmentationResult
 from datapilot.analytics.trend import TrendResult
 from datapilot.analytics.variance import VarianceResult
 
@@ -28,6 +30,8 @@ class Evidence:
     period_comparison: PeriodComparison | None = None
     variance: VarianceResult | None = None
     contribution: ContributionResult | None = None
+    segmentation: SegmentationResult | None = None
+    root_cause: RootCauseResult | None = None
 
     def to_prompt_text(self) -> str:
         """Convert evidence into deterministic prompt context."""
@@ -188,6 +192,84 @@ class Evidence:
         lines.extend(
             [
                 "",
+                "SEGMENTATION ANALYSIS:",
+            ]
+        )
+
+        if self.segmentation is not None:
+            segmentation = self.segmentation
+
+            lines.extend(
+                [
+                    f"- Dimension column: "
+                    f"{segmentation.dimension_column}",
+                    f"- Value column: "
+                    f"{segmentation.value_column}",
+                    f"- Total value: "
+                    f"{segmentation.total_value}",
+                ]
+            )
+
+            lines.append("- Segments:")
+
+            for segment in segmentation.segments:
+                lines.extend(
+                    [
+                        f"  - Segment: {segment.segment}",
+                        f"    Row count: {segment.row_count}",
+                        f"    Total value: {segment.total_value}",
+                        f"    Average value: "
+                        f"{segment.average_value}",
+                        f"    Minimum value: "
+                        f"{segment.minimum_value}",
+                        f"    Maximum value: "
+                        f"{segment.maximum_value}",
+                    ]
+                )
+        else:
+            lines.append("- None")
+
+        lines.extend(
+            [
+                "",
+                "ROOT-CAUSE ANALYSIS:",
+            ]
+        )
+
+        if self.root_cause is not None:
+            root_cause = self.root_cause
+
+            lines.extend(
+                [
+                    f"- Dimension column: "
+                    f"{root_cause.dimension_column}",
+                    f"- Value column: "
+                    f"{root_cause.value_column}",
+                    f"- Overall change: "
+                    f"{root_cause.overall_change}",
+                    f"- Overall direction: "
+                    f"{root_cause.overall_direction}",
+                ]
+            )
+
+            lines.append("- Drivers:")
+
+            for driver in root_cause.drivers:
+                lines.extend(
+                    [
+                        f"  - Category: {driver.category}",
+                        f"    Value: {driver.value}",
+                        f"    Contribution percentage: "
+                        f"{driver.contribution_percentage}",
+                        f"    Direction: {driver.direction}",
+                    ]
+                )
+        else:
+            lines.append("- None")
+
+        lines.extend(
+            [
+                "",
                 "RESULT COLUMNS:",
                 f"- {', '.join(self.result_columns)}",
             ]
@@ -218,6 +300,8 @@ class EvidenceBuilder:
         period_comparison: PeriodComparison | None = None,
         variance: VarianceResult | None = None,
         contribution: ContributionResult | None = None,
+        segmentation: SegmentationResult | None = None,
+        root_cause: RootCauseResult | None = None,
     ) -> Evidence:
         """Build evidence from deterministic analytical results."""
 
@@ -251,4 +335,6 @@ class EvidenceBuilder:
             period_comparison=period_comparison,
             variance=variance,
             contribution=contribution,
+            segmentation=segmentation,
+            root_cause=root_cause,
         )

@@ -3,11 +3,12 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from datapilot.analytics.contribution import (
-    ContributionAnalyzer,
-)
+from datapilot.analytics.analyzer import ResultAnalyzer
+from datapilot.analytics.contribution import ContributionAnalyzer
 from datapilot.analytics.evidence import EvidenceBuilder
 from datapilot.analytics.period import PeriodComparator
+from datapilot.analytics.root_cause import RootCauseAnalyzer
+from datapilot.analytics.segmentation import SegmentationAnalyzer
 from datapilot.analytics.trend import TrendAnalyzer
 from datapilot.analytics.variance import VarianceAnalyzer
 
@@ -58,8 +59,6 @@ def test_evidence_rejects_mismatched_analysis() -> None:
             "revenue": [400],
         }
     )
-
-    from datapilot.analytics.analyzer import ResultAnalyzer
 
     analysis = ResultAnalyzer().analyze(
         analysis_dataframe
@@ -233,7 +232,7 @@ def test_evidence_includes_variance() -> None:
         variance=variance,
     )
 
-    assert evidence.variance is not None
+    assert evidence.variance is variance
     assert evidence.variance.absolute_variance == 200
     assert evidence.variance.percentage_variance == 20
     assert evidence.variance.direction == "above_reference"
@@ -341,3 +340,191 @@ def test_evidence_prompt_contains_contribution() -> None:
     assert "Contributions:" in prompt_text
     assert "Category: East" in prompt_text
     assert "Category: North" in prompt_text
+
+
+def test_evidence_includes_segmentation() -> None:
+    dataframe = pd.DataFrame(
+        {
+            "customer_segment": [
+                "Enterprise",
+                "Enterprise",
+                "SMB",
+                "Consumer",
+            ],
+            "revenue": [
+                500,
+                300,
+                200,
+                100,
+            ],
+        }
+    )
+
+    segmentation = SegmentationAnalyzer().analyze(
+        dataframe=dataframe,
+        dimension_column="customer_segment",
+        value_column="revenue",
+    )
+
+    evidence = EvidenceBuilder().build(
+        dataframe=dataframe,
+        segmentation=segmentation,
+    )
+
+    assert evidence.segmentation is segmentation
+    assert evidence.segmentation.total_value == 1100
+    assert len(
+        evidence.segmentation.segments
+    ) == 3
+    assert (
+        evidence.segmentation.segments[0].segment
+        == "Enterprise"
+    )
+
+
+def test_evidence_prompt_contains_segmentation() -> None:
+    dataframe = pd.DataFrame(
+        {
+            "customer_segment": [
+                "Enterprise",
+                "Enterprise",
+                "SMB",
+                "Consumer",
+            ],
+            "revenue": [
+                500,
+                300,
+                200,
+                100,
+            ],
+        }
+    )
+
+    segmentation = SegmentationAnalyzer().analyze(
+        dataframe=dataframe,
+        dimension_column="customer_segment",
+        value_column="revenue",
+    )
+
+    evidence = EvidenceBuilder().build(
+        dataframe=dataframe,
+        segmentation=segmentation,
+    )
+
+    prompt_text = evidence.to_prompt_text()
+
+    assert "SEGMENTATION ANALYSIS:" in prompt_text
+    assert "Dimension column: customer_segment" in prompt_text
+    assert "Value column: revenue" in prompt_text
+    assert "Total value: 1100.0" in prompt_text
+    assert "Segments:" in prompt_text
+    assert "Segment: Enterprise" in prompt_text
+    assert "Total value: 800.0" in prompt_text
+    assert "Average value: 400.0" in prompt_text
+
+
+def test_evidence_includes_root_cause() -> None:
+    dataframe = pd.DataFrame(
+        {
+            "region": [
+                "North",
+                "West",
+                "South",
+                "East",
+            ],
+            "revenue_change": [
+                -8,
+                -5,
+                -3,
+                1,
+            ],
+        }
+    )
+
+    variance = VarianceAnalyzer().analyze(
+        actual_value=85,
+        reference_value=100,
+    )
+
+    contribution = ContributionAnalyzer().analyze(
+        dataframe=dataframe,
+        dimension_column="region",
+        value_column="revenue_change",
+    )
+
+    root_cause = RootCauseAnalyzer().analyze(
+        variance=variance,
+        contribution=contribution,
+    )
+
+    evidence = EvidenceBuilder().build(
+        dataframe=dataframe,
+        variance=variance,
+        contribution=contribution,
+        root_cause=root_cause,
+    )
+
+    assert evidence.root_cause is root_cause
+    assert evidence.root_cause.overall_change == -15
+    assert (
+        evidence.root_cause.overall_direction
+        == "below_reference"
+    )
+    assert len(
+        evidence.root_cause.drivers
+    ) == 4
+
+
+def test_evidence_prompt_contains_root_cause() -> None:
+    dataframe = pd.DataFrame(
+        {
+            "region": [
+                "North",
+                "West",
+                "South",
+                "East",
+            ],
+            "revenue_change": [
+                -8,
+                -5,
+                -3,
+                1,
+            ],
+        }
+    )
+
+    variance = VarianceAnalyzer().analyze(
+        actual_value=85,
+        reference_value=100,
+    )
+
+    contribution = ContributionAnalyzer().analyze(
+        dataframe=dataframe,
+        dimension_column="region",
+        value_column="revenue_change",
+    )
+
+    root_cause = RootCauseAnalyzer().analyze(
+        variance=variance,
+        contribution=contribution,
+    )
+
+    evidence = EvidenceBuilder().build(
+        dataframe=dataframe,
+        variance=variance,
+        contribution=contribution,
+        root_cause=root_cause,
+    )
+
+    prompt_text = evidence.to_prompt_text()
+
+    assert "ROOT-CAUSE ANALYSIS:" in prompt_text
+    assert "Dimension column: region" in prompt_text
+    assert "Value column: revenue_change" in prompt_text
+    assert "Overall change: -15.0" in prompt_text
+    assert "Overall direction: below_reference" in prompt_text
+    assert "Drivers:" in prompt_text
+    assert "Category: North" in prompt_text
+    assert "Direction: negative" in prompt_text
+    assert "Category: East" in prompt_text
+    assert "Direction: positive" in prompt_text
