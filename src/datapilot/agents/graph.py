@@ -13,6 +13,7 @@ from datapilot.agents.nodes import (
     sql_generation_node,
     sql_repair_node,
     sql_validation_node,
+    visualization_node,
 )
 from datapilot.agents.state import DataPilotState
 from datapilot.data.schema import SchemaInspector
@@ -78,6 +79,11 @@ def build_datapilot_graph(
     graph.add_node(
         "analyze_result",
         analysis_node,
+    )
+
+    graph.add_node(
+        "select_visualization",
+        visualization_node,
     )
 
     graph.add_node(
@@ -167,6 +173,11 @@ def build_datapilot_graph(
 
     graph.add_edge(
         "analyze_result",
+        "select_visualization",
+    )
+
+    graph.add_edge(
+        "select_visualization",
         "build_evidence",
     )
 

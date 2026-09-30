@@ -2,37 +2,27 @@ from __future__ import annotations
 
 from typing import Any, TypedDict
 
+from datapilot.visualization.models import VisualizationSpec
+
 
 class DataPilotState(TypedDict, total=False):
     """State carried through the DataPilot agent graph."""
 
-    # User input
     question: str
-
-    # Database understanding
     schema_context: str
-
-    # SQL generation
     sql: str
-
-    # SQL validation
     validation_errors: list[str]
     sql_valid: bool
-
-    # SQL repair
     repair_attempts: int
 
-    # Query execution
     result: Any
     row_count: int
 
-    # Analytical reasoning
     analysis: Any
     evidence: Any
 
-    # Final answer
-    answer: str
+    visualization: VisualizationSpec | None
 
-    # Agent lifecycle
+    answer: str
     status: str
     error: str

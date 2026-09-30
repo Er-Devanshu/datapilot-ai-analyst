@@ -11,6 +11,7 @@ from datapilot.sql.executor import SQLExecutor
 from datapilot.sql.generator import SQLGenerator
 from datapilot.sql.repair import SQLRepairer
 from datapilot.sql.validator import SQLValidator
+from datapilot.visualization.selector import VisualizationSelector
 
 
 def schema_node(
@@ -250,6 +251,29 @@ def analysis_node(
         **state,
         "analysis": analysis,
         "status": "analysis_complete",
+    }
+
+
+def visualization_node(
+    state: DataPilotState,
+) -> DataPilotState:
+    """Select a visualization deterministically from the query result."""
+
+    result = state.get("result")
+
+    if result is None:
+        raise ValueError(
+            "Agent state must contain an executed result."
+        )
+
+    selection = VisualizationSelector().select(
+        result
+    )
+
+    return {
+        **state,
+        "visualization": selection.specification,
+        "status": "visualization_selected",
     }
 
 
