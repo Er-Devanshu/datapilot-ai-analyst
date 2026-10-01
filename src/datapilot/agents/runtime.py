@@ -118,9 +118,23 @@ class DataPilotAgent:
             "status": "started",
         }
 
-        result = self.graph.invoke(
-            initial_state
-        )
+        try:
+            result = self.graph.invoke(
+                initial_state
+            )
+        except Exception as exc:
+            return AgentResponse(
+                question=question,
+                status="failed",
+                sql=None,
+                result=None,
+                row_count=0,
+                analysis=None,
+                visualization=None,
+                evidence=None,
+                answer=None,
+                error=str(exc),
+            )
 
         return AgentResponse.from_state(
             result
