@@ -7,15 +7,25 @@ from datapilot.data.schema import SchemaInspector
 
 @dataclass(frozen=True)
 class SQLSecurityPolicy:
-    """Authorization policy derived from the database schema."""
+    """Authorization and execution policy for DataPilot SQL."""
 
     allowed_tables: frozenset[str]
     allowed_columns: dict[str, frozenset[str]]
+    max_result_rows: int = 10_000
+
+    def __post_init__(self) -> None:
+        """Validate policy configuration."""
+
+        if self.max_result_rows <= 0:
+            raise ValueError(
+                "max_result_rows must be greater than zero."
+            )
 
     @classmethod
     def from_schema(
         cls,
         inspector: SchemaInspector,
+        max_result_rows: int = 10_000,
     ) -> "SQLSecurityPolicy":
         """Build a security policy from the current database schema."""
 
@@ -37,6 +47,7 @@ class SQLSecurityPolicy:
         return cls(
             allowed_tables=allowed_tables,
             allowed_columns=allowed_columns,
+            max_result_rows=max_result_rows,
         )
 
     def is_table_allowed(
