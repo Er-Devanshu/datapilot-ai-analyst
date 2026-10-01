@@ -528,3 +528,74 @@ def test_evidence_prompt_contains_root_cause() -> None:
     assert "Direction: negative" in prompt_text
     assert "Category: East" in prompt_text
     assert "Direction: positive" in prompt_text
+
+
+def test_evidence_includes_visualization() -> None:
+    from datapilot.visualization.selector import VisualizationSelector
+
+    dataframe = pd.DataFrame(
+        {
+            "region": [
+                "North",
+                "South",
+                "West",
+            ],
+            "revenue": [
+                100,
+                200,
+                150,
+            ],
+        }
+    )
+
+    visualization = VisualizationSelector().select(
+        dataframe=dataframe,
+        title="Revenue by Region",
+    ).specification
+
+    evidence = EvidenceBuilder().build(
+        dataframe=dataframe,
+        visualization=visualization,
+    )
+
+    assert evidence.visualization is visualization
+    assert evidence.visualization.chart_type == "bar"
+    assert evidence.visualization.x_column == "region"
+    assert evidence.visualization.y_column == "revenue"
+
+
+def test_evidence_prompt_contains_visualization() -> None:
+    from datapilot.visualization.selector import VisualizationSelector
+
+    dataframe = pd.DataFrame(
+        {
+            "region": [
+                "North",
+                "South",
+                "West",
+            ],
+            "revenue": [
+                100,
+                200,
+                150,
+            ],
+        }
+    )
+
+    visualization = VisualizationSelector().select(
+        dataframe=dataframe,
+        title="Revenue by Region",
+    ).specification
+
+    evidence = EvidenceBuilder().build(
+        dataframe=dataframe,
+        visualization=visualization,
+    )
+
+    prompt_text = evidence.to_prompt_text()
+
+    assert "VISUALIZATION:" in prompt_text
+    assert "Chart type: bar" in prompt_text
+    assert "X column: region" in prompt_text
+    assert "Y column: revenue" in prompt_text
+    assert "Title: Revenue by Region" in prompt_text

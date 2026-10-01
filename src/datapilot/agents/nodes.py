@@ -44,7 +44,11 @@ def sql_generation_node(
 ) -> DataPilotState:
     """Generate SQL from the current agent state."""
 
-    question = state.get("question", "").strip()
+    question = state.get(
+        "question",
+        "",
+    ).strip()
+
     schema_context = state.get(
         "schema_context",
         "",
@@ -80,7 +84,10 @@ def sql_validation_node(
 ) -> DataPilotState:
     """Validate generated SQL against the database schema."""
 
-    sql = state.get("sql", "").strip()
+    sql = state.get(
+        "sql",
+        "",
+    ).strip()
 
     if not sql:
         raise ValueError(
@@ -257,7 +264,7 @@ def analysis_node(
 def visualization_node(
     state: DataPilotState,
 ) -> DataPilotState:
-    """Select a visualization deterministically from the query result."""
+    """Select a deterministic visualization for the executed result."""
 
     result = state.get("result")
 

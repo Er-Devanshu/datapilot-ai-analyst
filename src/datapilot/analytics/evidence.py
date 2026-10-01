@@ -15,6 +15,7 @@ from datapilot.analytics.root_cause import RootCauseResult
 from datapilot.analytics.segmentation import SegmentationResult
 from datapilot.analytics.trend import TrendResult
 from datapilot.analytics.variance import VarianceResult
+from datapilot.visualization.models import VisualizationSpec
 
 
 @dataclass(frozen=True)
@@ -32,6 +33,7 @@ class Evidence:
     contribution: ContributionResult | None = None
     segmentation: SegmentationResult | None = None
     root_cause: RootCauseResult | None = None
+    visualization: VisualizationSpec | None = None
 
     def to_prompt_text(self) -> str:
         """Convert evidence into deterministic prompt context."""
@@ -270,6 +272,41 @@ class Evidence:
         lines.extend(
             [
                 "",
+                "VISUALIZATION:",
+            ]
+        )
+
+        if self.visualization is not None:
+            visualization = self.visualization
+
+            lines.extend(
+                [
+                    f"- Chart type: "
+                    f"{visualization.chart_type}",
+                    f"- X column: "
+                    f"{visualization.x_column}",
+                    f"- Y column: "
+                    f"{visualization.y_column}",
+                    f"- Color column: "
+                    f"{visualization.color_column}",
+                    f"- Title: "
+                    f"{visualization.title}",
+                    f"- Orientation: "
+                    f"{visualization.orientation}",
+                    f"- Sort by: "
+                    f"{visualization.sort_by}",
+                    f"- Sort descending: "
+                    f"{visualization.sort_descending}",
+                    f"- Limit: "
+                    f"{visualization.limit}",
+                ]
+            )
+        else:
+            lines.append("- None")
+
+        lines.extend(
+            [
+                "",
                 "RESULT COLUMNS:",
                 f"- {', '.join(self.result_columns)}",
             ]
@@ -302,6 +339,7 @@ class EvidenceBuilder:
         contribution: ContributionResult | None = None,
         segmentation: SegmentationResult | None = None,
         root_cause: RootCauseResult | None = None,
+        visualization: VisualizationSpec | None = None,
     ) -> Evidence:
         """Build evidence from deterministic analytical results."""
 
@@ -337,4 +375,5 @@ class EvidenceBuilder:
             contribution=contribution,
             segmentation=segmentation,
             root_cause=root_cause,
+            visualization=visualization,
         )
