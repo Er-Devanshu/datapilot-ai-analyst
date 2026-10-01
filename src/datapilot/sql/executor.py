@@ -70,8 +70,17 @@ class SQLExecutor:
             validation.sql
         )
 
+        row_count = len(dataframe)
+
+        if row_count > self.policy.max_result_rows:
+            raise ValueError(
+                "SQL result exceeds the maximum allowed "
+                f"result rows of {self.policy.max_result_rows}: "
+                f"{row_count} rows returned."
+            )
+
         return SQLExecutionResult(
             sql=validation.sql,
             dataframe=dataframe,
-            row_count=len(dataframe),
+            row_count=row_count,
         )
