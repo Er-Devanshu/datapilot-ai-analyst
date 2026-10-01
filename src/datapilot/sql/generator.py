@@ -8,15 +8,14 @@ from datapilot.llm.prompts import SQLPromptBuilder
 
 @dataclass(frozen=True)
 class SQLGenerationResult:
-    """Result returned by the SQL generator."""
+    """Result produced by SQL generation."""
 
-    question: str
     sql: str
-    model_name: str
+    prompt: str
 
 
 class SQLGenerator:
-    """Generate SQL from natural-language questions."""
+    """Generate SQL from a business question and schema context."""
 
     def __init__(
         self,
@@ -26,7 +25,8 @@ class SQLGenerator:
         self.llm = llm
         self.prompt_builder = (
             prompt_builder
-            or SQLPromptBuilder()
+            if prompt_builder is not None
+            else SQLPromptBuilder()
         )
 
     def generate(
@@ -48,7 +48,17 @@ class SQLGenerator:
 
         response = self.llm.generate(prompt)
 
-        sql = self._clean_sql(response.text)
+        # The production LocalLLM returns a response object with
+        # a .text attribute, while deterministic test doubles may
+        # return a plain string. Support both contracts.
+        if isinstance(response, str):
+            response_text = response
+        else:
+            response_text = response.text
+
+        sql = self._clean_sql(
+            response_text
+        )
 
         if not sql:
             raise RuntimeError(
@@ -56,24 +66,30 @@ class SQLGenerator:
             )
 
         return SQLGenerationResult(
-            question=question,
             sql=sql,
-            model_name=response.model_name,
+            prompt=prompt,
         )
 
     @staticmethod
-    def _clean_sql(text: str) -> str:
-        """Clean common formatting artifacts from LLM output."""
+    def _clean_sql(
+        text: str,
+    ) -> str:
+        """Clean common LLM SQL formatting artifacts."""
 
         sql = text.strip()
 
-        if sql.startswith("```sql"):
-            sql = sql[6:]
+        if sql.startswith("```"):
+            lines = sql.splitlines()
 
-        elif sql.startswith("```"):
-            sql = sql[3:]
+            if lines:
+                lines = lines[1:]
 
-        if sql.endswith("```"):
-            sql = sql[:-3]
+            if lines and lines[-1].strip() == "```":
+                lines = lines[:-1]
 
-        return sql.strip()
+            sql = "\n".join(lines).strip()
+
+        if sql.lower().startswith("sql\n"):
+            sql = sql[4:].strip()
+
+        return sql

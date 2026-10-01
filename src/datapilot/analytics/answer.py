@@ -72,7 +72,23 @@ GROUNDING RULES:
 
         response = self.llm.generate(prompt)
 
-        answer = response.text.strip()
+        # LocalLLM returns a response object, while deterministic test
+        # doubles may return a plain string. Support both interfaces.
+        if isinstance(response, str):
+            answer = response.strip()
+            model_name = "unknown"
+        else:
+            answer = str(
+                getattr(response, "text", "")
+            ).strip()
+
+            model_name = str(
+                getattr(
+                    response,
+                    "model_name",
+                    "unknown",
+                )
+            )
 
         if not answer:
             raise RuntimeError(
@@ -82,7 +98,7 @@ GROUNDING RULES:
         return AnswerComposerResult(
             question=question,
             answer=answer,
-            model_name=response.model_name,
+            model_name=model_name,
         )
 
     def _build_prompt(

@@ -11,7 +11,7 @@ class ColumnInfo:
 
     name: str
     data_type: str
-    nullable: bool
+    nullable: bool = True
 
 
 @dataclass(frozen=True)
@@ -22,10 +22,23 @@ class TableInfo:
     columns: tuple[ColumnInfo, ...]
 
 
+# Backward-compatible schema names used by integration tests,
+# fixtures, and external callers.
+#
+# The production runtime uses ColumnInfo / TableInfo.
+# ColumnSchema / TableSchema are intentionally exposed as
+# compatibility aliases so both naming conventions work.
+ColumnSchema = ColumnInfo
+TableSchema = TableInfo
+
+
 class SchemaInspector:
     """Inspect the schema available in a DuckDB database."""
 
-    def __init__(self, data_source: DuckDBDataSource) -> None:
+    def __init__(
+        self,
+        data_source: DuckDBDataSource,
+    ) -> None:
         self.data_source = data_source
 
     def list_tables(self) -> list[str]:
@@ -43,16 +56,26 @@ class SchemaInspector:
 
         return result["table_name"].tolist()
 
-    def describe_table(self, table_name: str) -> TableInfo:
+    def describe_table(
+        self,
+        table_name: str,
+    ) -> TableInfo:
         """Return column metadata for a table."""
 
         if not table_name.strip():
-            raise ValueError("Table name cannot be empty.")
+            raise ValueError(
+                "Table name cannot be empty."
+            )
 
         if table_name not in self.list_tables():
-            raise ValueError(f"Table does not exist: {table_name}")
+            raise ValueError(
+                f"Table does not exist: {table_name}"
+            )
 
-        escaped_table_name = table_name.replace("'", "''")
+        escaped_table_name = table_name.replace(
+            "'",
+            "''",
+        )
 
         result = self.data_source.fetch_dataframe(
             f"""
