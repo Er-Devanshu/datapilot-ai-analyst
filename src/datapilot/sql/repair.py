@@ -91,8 +91,15 @@ Rules:
 
         response = self.llm.generate(prompt)
 
+        if isinstance(response, str):
+            response_text = response
+            model_name = "unknown"
+        else:
+            response_text = response.text
+            model_name = response.model_name
+
         repaired_sql = self._clean_sql(
-            response.text
+            response_text
         )
 
         if not repaired_sql:
@@ -104,7 +111,7 @@ Rules:
             question=question,
             original_sql=sql,
             repaired_sql=repaired_sql,
-            model_name=response.model_name,
+            model_name=model_name,
         )
 
     def _build_repair_prompt(

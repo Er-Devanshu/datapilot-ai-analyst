@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-import duckdb
+import pytest
 
 from datapilot.data.duckdb import DuckDBDataSource
 from datapilot.data.schema import SchemaInspector
 from datapilot.llm.local import LLMResponse
 from datapilot.sql.executor import SQLExecutor
 from datapilot.sql.pipeline import SQLPipeline
+from datapilot.sql.repair import SQLRepairer
 
 
 class FakeLLM:
@@ -19,9 +20,10 @@ class FakeLLM:
         self.responses = responses
         self.index = 0
 
-    def generate(self, prompt: str) -> LLMResponse:
-        """Return the next predefined response."""
-
+    def generate(
+        self,
+        prompt: str,
+    ) -> LLMResponse:
         if self.index >= len(self.responses):
             raise RuntimeError(
                 "FakeLLM has no more responses."
@@ -36,196 +38,141 @@ class FakeLLM:
         )
 
 
-def build_test_database() -> DuckDBDataSource:
-    """Create a small in-memory database for testing."""
+class StringResponseLLM:
+    """Deterministic LLM double that returns a plain string."""
 
-    data_source = DuckDBDataSource(":memory:")
+    def __init__(
+        self,
+        response: str,
+    ) -> None:
+        self.response = response
 
-    data_source.connect()
+    def generate(
+        self,
+        prompt: str,
+    ) -> str:
+        return self.response
 
-    connection = data_source._connection
 
-    if connection is None:
-        raise RuntimeError(
-            "DuckDB connection was not created."
-        )
+def build_executor() -> SQLExecutor:
+    data_source = DuckDBDataSource()
 
-    connection.execute(
+    data_source.execute(
         """
         CREATE TABLE fact_sales (
-            sales_key INTEGER,
-            location_key INTEGER,
             net_amount DOUBLE
         )
         """
     )
 
-    connection.execute(
-        """
-        CREATE TABLE dim_location (
-            location_key INTEGER,
-            region VARCHAR
-        )
-        """
-    )
-
-    connection.execute(
+    data_source.execute(
         """
         INSERT INTO fact_sales VALUES
-            (1, 1, 1000),
-            (2, 1, 2000),
-            (3, 2, 1500)
+            (100.0),
+            (200.0),
+            (300.0)
         """
     )
 
-    connection.execute(
-        """
-        INSERT INTO dim_location VALUES
-            (1, 'North'),
-            (2, 'West')
-        """
+    return SQLExecutor(
+        data_source=data_source,
     )
 
-    return data_source
 
-
-def test_pipeline_executes_valid_sql() -> None:
-    """A valid generated query should execute immediately."""
-
-    database = build_test_database()
-
-    llm = FakeLLM(
-        [
-            """
-            SELECT
-                d.region,
-                SUM(s.net_amount) AS revenue
-            FROM fact_sales AS s
-            JOIN dim_location AS d
-                ON s.location_key = d.location_key
-            GROUP BY d.region
-            ORDER BY revenue DESC
-            """
-        ]
-    )
-
-    inspector = SchemaInspector(database)
-    executor = SQLExecutor(database)
+def test_sql_pipeline_executes_valid_sql() -> None:
+    executor = build_executor()
 
     pipeline = SQLPipeline(
-        llm=llm,
-        inspector=inspector,
+        llm=FakeLLM(
+            [
+                "SELECT SUM(net_amount) AS revenue FROM fact_sales"
+            ]
+        ),
+        inspector=SchemaInspector(
+            executor.data_source
+        ),
         executor=executor,
     )
 
     result = pipeline.run(
-        "What is the total revenue by region?"
+        "What is the total revenue?"
     )
 
     assert result.repair_attempts == 0
-    assert result.execution.row_count == 2
-    assert set(
-        result.execution.dataframe["region"]
-    ) == {"North", "West"}
-
-    database.close()
+    assert result.execution.row_count == 1
+    assert result.execution.dataframe.iloc[0]["revenue"] == 600.0
 
 
-def test_pipeline_repairs_invalid_sql() -> None:
-    """An invalid query should be repaired before execution."""
-
-    database = build_test_database()
-
-    llm = FakeLLM(
-        [
-            """
-            SELECT
-                d.region,
-                SUM(s.revenue) AS revenue
-            FROM fact_sales AS s
-            JOIN dim_location AS d
-                ON s.location_key = d.location_key
-            GROUP BY d.region
-            """,
-            """
-            SELECT
-                d.region,
-                SUM(s.net_amount) AS revenue
-            FROM fact_sales AS s
-            JOIN dim_location AS d
-                ON s.location_key = d.location_key
-            GROUP BY d.region
-            ORDER BY revenue DESC
-            """,
-        ]
-    )
-
-    inspector = SchemaInspector(database)
-    executor = SQLExecutor(database)
+def test_sql_pipeline_repairs_invalid_sql() -> None:
+    executor = build_executor()
 
     pipeline = SQLPipeline(
-        llm=llm,
-        inspector=inspector,
+        llm=FakeLLM(
+            [
+                "SELECT SUM(revenue) FROM fact_sales",
+                "SELECT SUM(net_amount) AS revenue FROM fact_sales",
+            ]
+        ),
+        inspector=SchemaInspector(
+            executor.data_source
+        ),
         executor=executor,
     )
 
     result = pipeline.run(
-        "What is the total revenue by region?"
+        "What is the total revenue?"
     )
 
     assert result.repair_attempts == 1
-    assert result.execution.row_count == 2
-    assert "net_amount" in result.sql
-    assert "s.revenue" not in result.sql
-
-    database.close()
+    assert result.execution.row_count == 1
+    assert result.execution.dataframe.iloc[0]["revenue"] == 600.0
 
 
-def test_pipeline_stops_after_max_repair_attempts() -> None:
-    """Repeatedly invalid SQL must eventually fail safely."""
-
-    database = build_test_database()
-
-    llm = FakeLLM(
-        [
-            """
-            SELECT
-                s.invalid_column
-            FROM fact_sales AS s
-            """,
-            """
-            SELECT
-                s.invalid_column
-            FROM fact_sales AS s
-            """,
-            """
-            SELECT
-                s.invalid_column
-            FROM fact_sales AS s
-            """,
-        ]
-    )
-
-    inspector = SchemaInspector(database)
-    executor = SQLExecutor(database)
+def test_sql_pipeline_fails_after_max_repair_attempts() -> None:
+    executor = build_executor()
 
     pipeline = SQLPipeline(
-        llm=llm,
-        inspector=inspector,
+        llm=FakeLLM(
+            [
+                "SELECT revenue FROM fact_sales",
+                "SELECT revenue FROM fact_sales",
+            ]
+        ),
+        inspector=SchemaInspector(
+            executor.data_source
+        ),
         executor=executor,
-        max_repair_attempts=2,
+        max_repair_attempts=1,
     )
 
-    try:
+    with pytest.raises(
+        RuntimeError,
+        match="SQL validation failed after 1 repair attempts",
+    ):
         pipeline.run(
             "What is the total revenue?"
         )
-    except RuntimeError as exc:
-        assert "validation failed" in str(exc).lower()
-    else:
-        raise AssertionError(
-            "Pipeline should fail after maximum "
-            "repair attempts."
-        )
 
-    database.close()
+
+def test_sql_repairer_accepts_plain_string_llm_response() -> None:
+    repairer = SQLRepairer(
+        llm=StringResponseLLM(
+            "SELECT SUM(net_amount) AS revenue FROM fact_sales"
+        )
+    )
+
+    result = repairer.repair(
+        question="What is the total revenue?",
+        sql="SELECT SUM(revenue) FROM fact_sales",
+        errors=(
+            "Column 'revenue' is not allowed.",
+        ),
+        schema_context=(
+            "fact_sales(net_amount DOUBLE)"
+        ),
+    )
+
+    assert result.repaired_sql == (
+        "SELECT SUM(net_amount) AS revenue FROM fact_sales"
+    )
+    assert result.model_name == "unknown"
