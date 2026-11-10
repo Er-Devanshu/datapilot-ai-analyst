@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 from datapilot.agents.state import DataPilotState
@@ -11,6 +12,7 @@ from datapilot.sql.executor import SQLExecutor
 from datapilot.sql.generator import SQLGenerator
 from datapilot.sql.repair import SQLRepairer
 from datapilot.sql.validator import SQLValidator
+from datapilot.visualization.renderer import VisualizationRenderer
 from datapilot.visualization.selector import VisualizationSelector
 
 
@@ -284,6 +286,36 @@ def visualization_node(
     }
 
 
+def visualization_rendering_node(
+    state: DataPilotState,
+) -> DataPilotState:
+    """Render the selected visualization from the query result."""
+
+    result = state.get("result")
+    visualization = state.get("visualization")
+
+    if result is None:
+        raise ValueError(
+            "Agent state must contain an executed result."
+        )
+
+    if visualization is None:
+        raise ValueError(
+            "Agent state must contain a visualization specification."
+        )
+
+    rendered_visualization = VisualizationRenderer().render(
+        dataframe=result,
+        specification=visualization,
+    )
+
+    return {
+        **state,
+        "rendered_visualization": rendered_visualization,
+        "status": "visualization_rendered",
+    }
+
+
 def evidence_node(
     state: DataPilotState,
 ) -> DataPilotState:
@@ -291,6 +323,7 @@ def evidence_node(
 
     result = state.get("result")
     analysis = state.get("analysis")
+    visualization = state.get("visualization")
 
     if result is None:
         raise ValueError(
@@ -305,6 +338,7 @@ def evidence_node(
     evidence = EvidenceBuilder().build(
         dataframe=result,
         analysis=analysis,
+        visualization=visualization,
     )
 
     return {

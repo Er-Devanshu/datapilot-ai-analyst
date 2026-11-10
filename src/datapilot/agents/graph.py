@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 from functools import partial
@@ -14,6 +15,7 @@ from datapilot.agents.nodes import (
     sql_repair_node,
     sql_validation_node,
     visualization_node,
+    visualization_rendering_node,
 )
 from datapilot.agents.state import DataPilotState
 from datapilot.data.schema import SchemaInspector
@@ -84,6 +86,11 @@ def build_datapilot_graph(
     graph.add_node(
         "select_visualization",
         visualization_node,
+    )
+
+    graph.add_node(
+        "render_visualization",
+        visualization_rendering_node,
     )
 
     graph.add_node(
@@ -178,6 +185,11 @@ def build_datapilot_graph(
 
     graph.add_edge(
         "select_visualization",
+        "render_visualization",
+    )
+
+    graph.add_edge(
+        "render_visualization",
         "build_evidence",
     )
 

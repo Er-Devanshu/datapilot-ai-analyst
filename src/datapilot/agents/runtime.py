@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -12,6 +13,7 @@ from datapilot.data.schema import SchemaInspector
 from datapilot.llm.local import LocalLLM
 from datapilot.sql.executor import SQLExecutor
 from datapilot.visualization.models import VisualizationSpec
+from datapilot.visualization.renderer import RenderedVisualization
 
 
 @dataclass(frozen=True)
@@ -28,6 +30,7 @@ class AgentResponse:
     evidence: Evidence | None
     answer: str | None
     error: str | None = None
+    rendered_visualization: RenderedVisualization | None = None
 
     @classmethod
     def from_state(
@@ -45,30 +48,19 @@ class AgentResponse:
                 "status",
                 "unknown",
             ),
-            sql=state.get(
-                "sql"
-            ),
-            result=state.get(
-                "result"
-            ),
+            sql=state.get("sql"),
+            result=state.get("result"),
             row_count=state.get(
                 "row_count",
                 0,
             ),
-            analysis=state.get(
-                "analysis"
-            ),
-            visualization=state.get(
-                "visualization"
-            ),
-            evidence=state.get(
-                "evidence"
-            ),
-            answer=state.get(
-                "answer"
-            ),
-            error=state.get(
-                "error"
+            analysis=state.get("analysis"),
+            visualization=state.get("visualization"),
+            evidence=state.get("evidence"),
+            answer=state.get("answer"),
+            error=state.get("error"),
+            rendered_visualization=state.get(
+                "rendered_visualization"
             ),
         )
 
@@ -134,11 +126,10 @@ class DataPilotAgent:
                 evidence=None,
                 answer=None,
                 error=str(exc),
+                rendered_visualization=None,
             )
 
-        return AgentResponse.from_state(
-            result
-        )
+        return AgentResponse.from_state(result)
 
     @staticmethod
     def _build_response(
@@ -146,6 +137,4 @@ class DataPilotAgent:
     ) -> AgentResponse:
         """Convert internal graph state into the public response."""
 
-        return AgentResponse.from_state(
-            state
-        )
+        return AgentResponse.from_state(state)
