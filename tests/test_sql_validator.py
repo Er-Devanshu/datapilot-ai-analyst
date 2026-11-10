@@ -1,3 +1,4 @@
+
 from datapilot.sql.validator import SQLValidator
 
 
@@ -33,6 +34,8 @@ def test_valid_read_only_query() -> None:
 
     assert result.valid is True
     assert result.errors == ()
+    assert "ORDER BY revenue DESC" in result.sql
+    assert "LIMIT 10001" in result.sql
 
 
 def test_write_statement_is_rejected() -> None:
@@ -102,6 +105,102 @@ def test_result_limit_is_enforced() -> None:
         "limit" in error.lower()
         for error in result.errors
     )
+
+
+def test_unbounded_query_gets_sentinel_limit() -> None:
+    validator = SQLValidator(
+        max_result_rows=100
+    )
+
+    result = validator.validate(
+        "SELECT * FROM fact_sales",
+        allowed_tables={"fact_sales"},
+    )
+
+    assert result.valid is True
+    assert "LIMIT 101" in result.sql
+
+
+def test_automatic_limit_preserves_order_by() -> None:
+    validator = SQLValidator(
+        max_result_rows=100
+    )
+
+    result = validator.validate(
+        """
+        SELECT region, net_amount
+        FROM fact_sales
+        ORDER BY net_amount DESC
+        """,
+        allowed_tables={"fact_sales"},
+    )
+
+    assert result.valid is True
+    assert "ORDER BY net_amount DESC" in result.sql
+    assert result.sql.endswith("LIMIT 101")
+
+
+def test_explicit_smaller_limit_is_preserved() -> None:
+    validator = SQLValidator(
+        max_result_rows=100
+    )
+
+    result = validator.validate(
+        "SELECT * FROM fact_sales LIMIT 25",
+        allowed_tables={"fact_sales"},
+    )
+
+    assert result.valid is True
+    assert result.sql.endswith("LIMIT 25")
+    assert "LIMIT 101" not in result.sql
+
+
+def test_explicit_limit_equal_to_maximum_is_preserved() -> None:
+    validator = SQLValidator(
+        max_result_rows=100
+    )
+
+    result = validator.validate(
+        "SELECT * FROM fact_sales LIMIT 100",
+        allowed_tables={"fact_sales"},
+    )
+
+    assert result.valid is True
+    assert result.sql.endswith("LIMIT 100")
+
+
+def test_dynamic_limit_is_rejected() -> None:
+    validator = SQLValidator(
+        max_result_rows=100
+    )
+
+    result = validator.validate(
+        """
+        SELECT *
+        FROM fact_sales
+        LIMIT (SELECT COUNT(*) FROM fact_sales)
+        """,
+        allowed_tables={"fact_sales"},
+    )
+
+    assert result.valid is False
+    assert any(
+        "Dynamic or unsupported LIMIT" in error
+        for error in result.errors
+    )
+
+
+def test_fractional_limit_is_rejected() -> None:
+    validator = SQLValidator(
+        max_result_rows=100
+    )
+
+    result = validator.validate(
+        "SELECT * FROM fact_sales LIMIT 10.5",
+        allowed_tables={"fact_sales"},
+    )
+
+    assert result.valid is False
 
 
 def test_multiple_statements_are_rejected() -> None:

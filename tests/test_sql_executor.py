@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 import pytest
@@ -5,6 +6,7 @@ import pytest
 from datapilot.data.duckdb import DuckDBDataSource
 from datapilot.sql.executor import SQLExecutor
 from datapilot.sql.policy import SQLSecurityPolicy
+from datapilot.sql.validator import SQLValidator
 
 
 def build_test_database() -> DuckDBDataSource:
@@ -37,13 +39,12 @@ def build_test_database() -> DuckDBDataSource:
 def build_executor(
     database: DuckDBDataSource,
     max_result_rows: int = 10_000,
+    validator: SQLValidator | None = None,
 ) -> SQLExecutor:
     """Create an executor with an explicit security policy."""
 
     policy = SQLSecurityPolicy(
-        allowed_tables=frozenset(
-            {"sales"}
-        ),
+        allowed_tables=frozenset({"sales"}),
         allowed_columns={
             "sales": frozenset(
                 {
@@ -57,6 +58,7 @@ def build_executor(
 
     return SQLExecutor(
         data_source=database,
+        validator=validator,
         policy=policy,
     )
 
@@ -97,11 +99,9 @@ def test_executor_returns_validated_sql() -> None:
         "SELECT region, revenue FROM sales"
     )
 
-    assert result.sql.strip().upper().startswith(
-        "SELECT"
-    )
-
+    assert result.sql.strip().upper().startswith("SELECT")
     assert "sales" in result.sql.lower()
+    assert "LIMIT 10001" in result.sql
 
     database.close()
 
@@ -169,10 +169,7 @@ def test_executor_reports_row_count() -> None:
         "SELECT region FROM sales"
     )
 
-    assert result.row_count == len(
-        result.dataframe
-    )
-
+    assert result.row_count == len(result.dataframe)
     assert result.row_count == 3
 
     database.close()
@@ -199,6 +196,55 @@ def test_executor_enforces_max_result_rows() -> None:
             FROM sales
             ORDER BY region
             """
+        )
+
+    database.close()
+
+
+def test_executor_applies_custom_policy_limit_to_sql() -> None:
+    """The SQL-level bound must reflect the configured policy."""
+
+    database = build_test_database()
+    executor = build_executor(
+        database,
+        max_result_rows=2,
+    )
+
+    result = executor.execute(
+        """
+        SELECT
+            region,
+            revenue
+        FROM sales
+        WHERE region <> 'North'
+        ORDER BY revenue DESC
+        """
+    )
+
+    assert result.row_count == 2
+    assert "ORDER BY revenue DESC" in result.sql
+    assert result.sql.endswith("LIMIT 3")
+
+    database.close()
+
+
+def test_executor_rejects_mismatched_validator_limit() -> None:
+    """A custom validator must not weaken the execution policy."""
+
+    database = build_test_database()
+
+    validator = SQLValidator(
+        max_result_rows=10_000
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="must match",
+    ):
+        build_executor(
+            database,
+            max_result_rows=100,
+            validator=validator,
         )
 
     database.close()

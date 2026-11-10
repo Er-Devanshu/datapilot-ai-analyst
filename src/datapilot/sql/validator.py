@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -16,7 +17,7 @@ class SQLValidationResult:
 
 
 class SQLValidator:
-    """Validate LLM-generated SQL before database execution."""
+    """Validate and bound LLM-generated SQL before database execution."""
 
     BLOCKED_STATEMENTS = (
         exp.Insert,
@@ -34,6 +35,16 @@ class SQLValidator:
         max_sql_length: int = 10_000,
         max_result_rows: int = 10_000,
     ) -> None:
+        if max_sql_length <= 0:
+            raise ValueError(
+                "max_sql_length must be greater than zero."
+            )
+
+        if max_result_rows <= 0:
+            raise ValueError(
+                "max_result_rows must be greater than zero."
+            )
+
         self.max_sql_length = max_sql_length
         self.max_result_rows = max_result_rows
 
@@ -43,21 +54,15 @@ class SQLValidator:
         allowed_tables: set[str] | None = None,
         allowed_columns: dict[str, set[str]] | None = None,
     ) -> SQLValidationResult:
-        """Validate SQL for safe read-only execution."""
+        """Validate SQL and enforce a database-level result bound."""
 
         errors: list[str] = []
 
         sql = sql.strip()
 
         if not sql:
-            errors.append(
-                "SQL query cannot be empty."
-            )
-
-            return self._result(
-                sql,
-                errors,
-            )
+            errors.append("SQL query cannot be empty.")
+            return self._result(sql, errors)
 
         if len(sql) > self.max_sql_length:
             errors.append(
@@ -71,31 +76,18 @@ class SQLValidator:
                 dialect="duckdb",
             )
         except Exception as exc:
-            errors.append(
-                f"SQL parsing failed: {exc}"
-            )
-
-            return self._result(
-                sql,
-                errors,
-            )
+            errors.append(f"SQL parsing failed: {exc}")
+            return self._result(sql, errors)
 
         if len(statements) != 1:
             errors.append(
                 "Exactly one SQL statement is required."
             )
-
-            return self._result(
-                sql,
-                errors,
-            )
+            return self._result(sql, errors)
 
         statement = statements[0]
 
-        if isinstance(
-            statement,
-            self.BLOCKED_STATEMENTS,
-        ):
+        if isinstance(statement, self.BLOCKED_STATEMENTS):
             errors.append(
                 "Write or schema-modifying SQL is not allowed."
             )
@@ -105,10 +97,7 @@ class SQLValidator:
                 "SQL command statements are not allowed."
             )
 
-        if not isinstance(
-            statement,
-            exp.Query,
-        ):
+        if not isinstance(statement, exp.Query):
             errors.append(
                 "Only read-only query statements are allowed."
             )
@@ -132,8 +121,13 @@ class SQLValidator:
             errors,
         )
 
+        if errors:
+            return self._result(sql, errors)
+
+        bounded_sql = self._apply_result_limit(statement)
+
         return self._result(
-            sql,
+            bounded_sql,
             errors,
         )
 
@@ -156,9 +150,7 @@ class SQLValidator:
             if table.name not in cte_names
         }
 
-        unauthorized = (
-            referenced_tables - allowed_tables
-        )
+        unauthorized = referenced_tables - allowed_tables
 
         if unauthorized:
             errors.append(
@@ -191,9 +183,7 @@ class SQLValidator:
                 if table.alias:
                     table_aliases[table.alias] = table_name
 
-        select_aliases = self._get_select_aliases(
-            statement
-        )
+        select_aliases = self._get_select_aliases(statement)
 
         invalid_columns: set[str] = set()
 
@@ -203,14 +193,6 @@ class SQLValidator:
             if column_name == "*":
                 continue
 
-            # A SELECT alias such as:
-            #
-            #   SUM(net_amount) AS revenue
-            #
-            # may legally be referenced later as:
-            #
-            #   ORDER BY revenue
-            #
             if (
                 not column.table
                 and column_name in select_aliases
@@ -220,9 +202,7 @@ class SQLValidator:
             qualifier = column.table
 
             if qualifier:
-                table_name = table_aliases.get(
-                    qualifier
-                )
+                table_name = table_aliases.get(qualifier)
 
                 if table_name is None:
                     invalid_columns.add(
@@ -230,17 +210,13 @@ class SQLValidator:
                     )
                     continue
 
-                if column_name not in allowed_columns[
-                    table_name
-                ]:
+                if column_name not in allowed_columns[table_name]:
                     invalid_columns.add(
                         f"{table_name}.{column_name}"
                     )
 
             elif column_name not in all_columns:
-                invalid_columns.add(
-                    column_name
-                )
+                invalid_columns.add(column_name)
 
         if invalid_columns:
             errors.append(
@@ -271,7 +247,7 @@ class SQLValidator:
         statement: exp.Expression,
         errors: list[str],
     ) -> None:
-        """Prevent excessively large explicit result limits."""
+        """Validate any explicitly supplied top-level result limit."""
 
         limit = statement.args.get("limit")
 
@@ -280,16 +256,43 @@ class SQLValidator:
 
         expression = limit.expression
 
-        if isinstance(expression, exp.Literal):
-            if expression.is_int:
-                value = int(expression.this)
+        if not isinstance(expression, exp.Literal) or not expression.is_int:
+            errors.append(
+                "Only a non-negative integer SQL LIMIT is allowed. "
+                "Dynamic or unsupported LIMIT expressions are rejected."
+            )
+            return
 
-                if value > self.max_result_rows:
-                    errors.append(
-                        f"Query result limit {value:,} "
-                        f"exceeds the maximum allowed "
-                        f"limit of {self.max_result_rows:,} rows."
-                    )
+        value = int(expression.this)
+
+        if value < 0:
+            errors.append(
+                "SQL LIMIT cannot be negative."
+            )
+            return
+
+        if value > self.max_result_rows:
+            errors.append(
+                f"Query result limit {value:,} "
+                f"exceeds the maximum allowed "
+                f"limit of {self.max_result_rows:,} rows."
+            )
+
+    def _apply_result_limit(
+        self,
+        statement: exp.Expression,
+    ) -> str:
+        """Apply a max-plus-one bound when no explicit limit exists."""
+
+        if statement.args.get("limit") is not None:
+            return statement.sql(dialect="duckdb")
+
+        bounded_statement = statement.limit(
+            self.max_result_rows + 1,
+            copy=True,
+        )
+
+        return bounded_statement.sql(dialect="duckdb")
 
     @staticmethod
     def _result(

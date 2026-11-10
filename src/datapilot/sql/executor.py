@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -30,17 +31,28 @@ class SQLExecutor:
     ) -> None:
         self.data_source = data_source
 
-        self.validator = (
-            validator
-            or SQLValidator()
-        )
-
         self.policy = (
             policy
             or SQLSecurityPolicy.from_schema(
                 SchemaInspector(data_source)
             )
         )
+
+        self.validator = (
+            validator
+            or SQLValidator(
+                max_result_rows=self.policy.max_result_rows
+            )
+        )
+
+        if (
+            self.validator.max_result_rows
+            != self.policy.max_result_rows
+        ):
+            raise ValueError(
+                "SQLValidator max_result_rows must match "
+                "SQLSecurityPolicy max_result_rows."
+            )
 
     def execute(
         self,
