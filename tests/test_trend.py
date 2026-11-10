@@ -1,3 +1,4 @@
+
 import pandas as pd
 import pytest
 
@@ -28,15 +29,11 @@ def test_trend_analysis_detects_increasing_trend() -> None:
 
     assert result.period_column == "month"
     assert result.value_column == "revenue"
-
     assert result.first_value == 100.0
     assert result.last_value == 150.0
-
     assert result.absolute_change == 50.0
     assert result.percentage_change == 50.0
-
     assert result.direction == "increasing"
-
     assert len(result.points) == 3
 
 
@@ -119,7 +116,7 @@ def test_trend_analysis_handles_zero_start_value() -> None:
     assert result.direction == "increasing"
 
 
-def test_trend_analysis_preserves_input_order() -> None:
+def test_trend_analysis_sorts_unordered_date_periods() -> None:
     dataframe = pd.DataFrame(
         {
             "month": [
@@ -145,9 +142,80 @@ def test_trend_analysis_preserves_input_order() -> None:
         point.period
         for point in result.points
     ] == [
-        "2025-03",
         "2025-01",
         "2025-02",
+        "2025-03",
+    ]
+
+    assert result.first_value == 100.0
+    assert result.last_value == 300.0
+    assert result.absolute_change == 200.0
+
+
+def test_trend_analysis_sorts_numeric_periods() -> None:
+    dataframe = pd.DataFrame(
+        {
+            "year": [
+                2025,
+                2023,
+                2024,
+            ],
+            "revenue": [
+                300.0,
+                100.0,
+                200.0,
+            ],
+        }
+    )
+
+    result = TrendAnalyzer().analyze(
+        dataframe=dataframe,
+        period_column="year",
+        value_column="revenue",
+    )
+
+    assert [
+        point.period
+        for point in result.points
+    ] == [
+        "2023",
+        "2024",
+        "2025",
+    ]
+
+    assert result.first_value == 100.0
+    assert result.last_value == 300.0
+
+
+def test_trend_analysis_sorts_non_date_periods_deterministically() -> None:
+    dataframe = pd.DataFrame(
+        {
+            "period": [
+                "Q3",
+                "Q1",
+                "Q2",
+            ],
+            "revenue": [
+                300.0,
+                100.0,
+                200.0,
+            ],
+        }
+    )
+
+    result = TrendAnalyzer().analyze(
+        dataframe=dataframe,
+        period_column="period",
+        value_column="revenue",
+    )
+
+    assert [
+        point.period
+        for point in result.points
+    ] == [
+        "Q1",
+        "Q2",
+        "Q3",
     ]
 
 

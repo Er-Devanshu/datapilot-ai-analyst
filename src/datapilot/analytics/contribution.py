@@ -1,5 +1,7 @@
+
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 
 import pandas as pd
@@ -16,7 +18,7 @@ class Contribution:
 
 @dataclass(frozen=True)
 class ContributionResult:
-    """Deterministic decomposition of an overall analytical change."""
+    """Deterministic decomposition of category-level changes."""
 
     dimension_column: str
     value_column: str
@@ -25,15 +27,20 @@ class ContributionResult:
 
 
 class ContributionAnalyzer:
-    """Decompose an overall change across a categorical dimension."""
+    """Decompose category-level changes across a categorical dimension."""
 
-    def analyze(
+    def analyze_change(
         self,
         dataframe: pd.DataFrame,
         dimension_column: str,
         value_column: str,
     ) -> ContributionResult:
-        """Calculate each category's contribution to the total change."""
+        """Calculate category contributions to an explicitly supplied change.
+
+        The value column must represent category-level changes, not ordinary
+        grouped totals. This method cannot infer that semantic distinction
+        from numeric values alone.
+        """
 
         if dataframe is None:
             raise ValueError(
@@ -72,7 +79,7 @@ class ContributionAnalyzer:
         if working.empty:
             raise ValueError(
                 "No valid observations available "
-                "for contribution analysis."
+                "for change decomposition."
             )
 
         grouped = (
@@ -83,7 +90,8 @@ class ContributionAnalyzer:
             )[value_column]
             .sum()
             .sort_values(
-                ascending=False
+                ascending=False,
+                kind="mergesort",
             )
         )
 
@@ -98,8 +106,7 @@ class ContributionAnalyzer:
                     value=float(value),
                     contribution_percentage=None,
                 )
-                for category, value
-                in grouped.items()
+                for category, value in grouped.items()
             )
         else:
             contributions = tuple(
@@ -109,11 +116,9 @@ class ContributionAnalyzer:
                     contribution_percentage=(
                         float(value)
                         / abs(total_change)
-                    )
-                    * 100,
+                    ) * 100,
                 )
-                for category, value
-                in grouped.items()
+                for category, value in grouped.items()
             )
 
         return ContributionResult(
@@ -121,4 +126,26 @@ class ContributionAnalyzer:
             value_column=value_column,
             total_change=total_change,
             contributions=contributions,
+        )
+
+    def analyze(
+        self,
+        dataframe: pd.DataFrame,
+        dimension_column: str,
+        value_column: str,
+    ) -> ContributionResult:
+        """Deprecated compatibility alias for analyze_change()."""
+
+        warnings.warn(
+            "ContributionAnalyzer.analyze() is deprecated. "
+            "Use analyze_change() to make the change-decomposition "
+            "contract explicit.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
+        return self.analyze_change(
+            dataframe=dataframe,
+            dimension_column=dimension_column,
+            value_column=value_column,
         )

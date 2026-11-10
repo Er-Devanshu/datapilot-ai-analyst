@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 import pandas as pd
@@ -26,10 +27,7 @@ def test_evidence_builds_from_analysis() -> None:
     )
 
     assert evidence.row_count == 3
-    assert evidence.result_columns == (
-        "region",
-        "revenue",
-    )
+    assert evidence.result_columns == ("region", "revenue")
     assert evidence.currency == "INR"
 
     assert len(evidence.numeric_summaries) == 1
@@ -269,22 +267,12 @@ def test_evidence_prompt_contains_variance() -> None:
 def test_evidence_includes_contribution() -> None:
     dataframe = pd.DataFrame(
         {
-            "region": [
-                "North",
-                "West",
-                "South",
-                "East",
-            ],
-            "revenue_change": [
-                -80,
-                -50,
-                -30,
-                10,
-            ],
+            "region": ["North", "West", "South", "East"],
+            "revenue_change": [-80, -50, -30, 10],
         }
     )
 
-    contribution = ContributionAnalyzer().analyze(
+    contribution = ContributionAnalyzer().analyze_change(
         dataframe=dataframe,
         dimension_column="region",
         value_column="revenue_change",
@@ -297,30 +285,18 @@ def test_evidence_includes_contribution() -> None:
 
     assert evidence.contribution is contribution
     assert evidence.contribution.total_change == -150
-    assert len(
-        evidence.contribution.contributions
-    ) == 4
+    assert len(evidence.contribution.contributions) == 4
 
 
 def test_evidence_prompt_contains_contribution() -> None:
     dataframe = pd.DataFrame(
         {
-            "region": [
-                "North",
-                "West",
-                "South",
-                "East",
-            ],
-            "revenue_change": [
-                -80,
-                -50,
-                -30,
-                10,
-            ],
+            "region": ["North", "West", "South", "East"],
+            "revenue_change": [-80, -50, -30, 10],
         }
     )
 
-    contribution = ContributionAnalyzer().analyze(
+    contribution = ContributionAnalyzer().analyze_change(
         dataframe=dataframe,
         dimension_column="region",
         value_column="revenue_change",
@@ -351,12 +327,7 @@ def test_evidence_includes_segmentation() -> None:
                 "SMB",
                 "Consumer",
             ],
-            "revenue": [
-                500,
-                300,
-                200,
-                100,
-            ],
+            "revenue": [500, 300, 200, 100],
         }
     )
 
@@ -373,13 +344,8 @@ def test_evidence_includes_segmentation() -> None:
 
     assert evidence.segmentation is segmentation
     assert evidence.segmentation.total_value == 1100
-    assert len(
-        evidence.segmentation.segments
-    ) == 3
-    assert (
-        evidence.segmentation.segments[0].segment
-        == "Enterprise"
-    )
+    assert len(evidence.segmentation.segments) == 3
+    assert evidence.segmentation.segments[0].segment == "Enterprise"
 
 
 def test_evidence_prompt_contains_segmentation() -> None:
@@ -391,12 +357,7 @@ def test_evidence_prompt_contains_segmentation() -> None:
                 "SMB",
                 "Consumer",
             ],
-            "revenue": [
-                500,
-                300,
-                200,
-                100,
-            ],
+            "revenue": [500, 300, 200, 100],
         }
     )
 
@@ -426,18 +387,8 @@ def test_evidence_prompt_contains_segmentation() -> None:
 def test_evidence_includes_root_cause() -> None:
     dataframe = pd.DataFrame(
         {
-            "region": [
-                "North",
-                "West",
-                "South",
-                "East",
-            ],
-            "revenue_change": [
-                -8,
-                -5,
-                -3,
-                1,
-            ],
+            "region": ["North", "West", "South", "East"],
+            "revenue_change": [-8, -5, -3, 1],
         }
     )
 
@@ -446,7 +397,7 @@ def test_evidence_includes_root_cause() -> None:
         reference_value=100,
     )
 
-    contribution = ContributionAnalyzer().analyze(
+    contribution = ContributionAnalyzer().analyze_change(
         dataframe=dataframe,
         dimension_column="region",
         value_column="revenue_change",
@@ -466,30 +417,15 @@ def test_evidence_includes_root_cause() -> None:
 
     assert evidence.root_cause is root_cause
     assert evidence.root_cause.overall_change == -15
-    assert (
-        evidence.root_cause.overall_direction
-        == "below_reference"
-    )
-    assert len(
-        evidence.root_cause.drivers
-    ) == 4
+    assert evidence.root_cause.overall_direction == "below_reference"
+    assert len(evidence.root_cause.drivers) == 4
 
 
 def test_evidence_prompt_contains_root_cause() -> None:
     dataframe = pd.DataFrame(
         {
-            "region": [
-                "North",
-                "West",
-                "South",
-                "East",
-            ],
-            "revenue_change": [
-                -8,
-                -5,
-                -3,
-                1,
-            ],
+            "region": ["North", "West", "South", "East"],
+            "revenue_change": [-8, -5, -3, 1],
         }
     )
 
@@ -498,7 +434,7 @@ def test_evidence_prompt_contains_root_cause() -> None:
         reference_value=100,
     )
 
-    contribution = ContributionAnalyzer().analyze(
+    contribution = ContributionAnalyzer().analyze_change(
         dataframe=dataframe,
         dimension_column="region",
         value_column="revenue_change",
@@ -535,16 +471,8 @@ def test_evidence_includes_visualization() -> None:
 
     dataframe = pd.DataFrame(
         {
-            "region": [
-                "North",
-                "South",
-                "West",
-            ],
-            "revenue": [
-                100,
-                200,
-                150,
-            ],
+            "region": ["North", "South", "West"],
+            "revenue": [100, 200, 150],
         }
     )
 
@@ -569,16 +497,8 @@ def test_evidence_prompt_contains_visualization() -> None:
 
     dataframe = pd.DataFrame(
         {
-            "region": [
-                "North",
-                "South",
-                "West",
-            ],
-            "revenue": [
-                100,
-                200,
-                150,
-            ],
+            "region": ["North", "South", "West"],
+            "revenue": [100, 200, 150],
         }
     )
 

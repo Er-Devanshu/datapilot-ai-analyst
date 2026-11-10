@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 import pandas as pd
@@ -8,7 +9,7 @@ from datapilot.analytics.contribution import (
 )
 
 
-def test_contribution_analysis() -> None:
+def test_change_contribution_analysis() -> None:
     dataframe = pd.DataFrame(
         {
             "region": [
@@ -26,7 +27,7 @@ def test_contribution_analysis() -> None:
         }
     )
 
-    result = ContributionAnalyzer().analyze(
+    result = ContributionAnalyzer().analyze_change(
         dataframe=dataframe,
         dimension_column="region",
         value_column="revenue_change",
@@ -49,7 +50,7 @@ def test_contribution_analysis() -> None:
     assert result.contributions[3].value == -8_000_000
 
 
-def test_contribution_percentages() -> None:
+def test_change_contribution_percentages() -> None:
     dataframe = pd.DataFrame(
         {
             "region": [
@@ -63,7 +64,7 @@ def test_contribution_percentages() -> None:
         }
     )
 
-    result = ContributionAnalyzer().analyze(
+    result = ContributionAnalyzer().analyze_change(
         dataframe=dataframe,
         dimension_column="region",
         value_column="revenue_change",
@@ -92,7 +93,7 @@ def test_zero_total_change() -> None:
         }
     )
 
-    result = ContributionAnalyzer().analyze(
+    result = ContributionAnalyzer().analyze_change(
         dataframe=dataframe,
         dimension_column="region",
         value_column="revenue_change",
@@ -111,8 +112,11 @@ def test_missing_dimension_column() -> None:
         }
     )
 
-    with pytest.raises(ValueError):
-        ContributionAnalyzer().analyze(
+    with pytest.raises(
+        ValueError,
+        match="Dimension column does not exist",
+    ):
+        ContributionAnalyzer().analyze_change(
             dataframe=dataframe,
             dimension_column="region",
             value_column="revenue_change",
@@ -126,8 +130,11 @@ def test_missing_value_column() -> None:
         }
     )
 
-    with pytest.raises(ValueError):
-        ContributionAnalyzer().analyze(
+    with pytest.raises(
+        ValueError,
+        match="Value column does not exist",
+    ):
+        ContributionAnalyzer().analyze_change(
             dataframe=dataframe,
             dimension_column="region",
             value_column="revenue_change",
@@ -142,8 +149,11 @@ def test_non_numeric_value_column() -> None:
         }
     )
 
-    with pytest.raises(ValueError):
-        ContributionAnalyzer().analyze(
+    with pytest.raises(
+        ValueError,
+        match="Value column must be numeric",
+    ):
+        ContributionAnalyzer().analyze_change(
             dataframe=dataframe,
             dimension_column="region",
             value_column="revenue_change",
@@ -158,9 +168,33 @@ def test_empty_dataframe() -> None:
         ]
     )
 
-    with pytest.raises(ValueError):
-        ContributionAnalyzer().analyze(
+    with pytest.raises(
+        ValueError,
+        match="DataFrame cannot be empty",
+    ):
+        ContributionAnalyzer().analyze_change(
             dataframe=dataframe,
             dimension_column="region",
             value_column="revenue_change",
         )
+
+
+def test_legacy_analyze_alias_warns_and_remains_compatible() -> None:
+    dataframe = pd.DataFrame(
+        {
+            "region": ["North", "West"],
+            "revenue_change": [-60, -40],
+        }
+    )
+
+    with pytest.warns(
+        DeprecationWarning,
+        match="Use analyze_change",
+    ):
+        result = ContributionAnalyzer().analyze(
+            dataframe=dataframe,
+            dimension_column="region",
+            value_column="revenue_change",
+        )
+
+    assert result.total_change == -100
