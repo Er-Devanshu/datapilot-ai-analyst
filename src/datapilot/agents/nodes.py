@@ -25,8 +25,10 @@ from datapilot.sql.executor import SQLExecutor
 from datapilot.sql.generator import SQLGenerator
 from datapilot.sql.repair import SQLRepairer
 from datapilot.sql.validator import SQLValidator
+from datapilot.visualization.analytics_selection import (
+    AnalyticsAwareVisualizationSelector,
+)
 from datapilot.visualization.renderer import VisualizationRenderer
-from datapilot.visualization.selector import VisualizationSelector
 
 
 def schema_node(
@@ -392,7 +394,7 @@ def analytics_execution_node(
 def visualization_node(
     state: DataPilotState,
 ) -> DataPilotState:
-    """Select a deterministic visualization for the executed result."""
+    """Select a visualization from analytics output or query results."""
 
     result = state.get("result")
 
@@ -401,11 +403,24 @@ def visualization_node(
             "Agent state must contain an executed result."
         )
 
-    selection = VisualizationSelector().select(result)
+    if not isinstance(result, pd.DataFrame):
+        raise TypeError(
+            "Executed result must be a pandas DataFrame."
+        )
+
+    analytics_execution = state.get("analytics_execution")
+
+    selection = AnalyticsAwareVisualizationSelector().select(
+        dataframe=result,
+        analytics_execution=analytics_execution,
+    )
 
     return {
         **state,
         "visualization": selection.specification,
+        "visualization_dataframe": selection.dataframe,
+        "visualization_source": selection.source,
+        "visualization_request_id": selection.request_id,
         "status": "visualization_selected",
     }
 
@@ -413,9 +428,12 @@ def visualization_node(
 def visualization_rendering_node(
     state: DataPilotState,
 ) -> DataPilotState:
-    """Render the selected visualization from the query result."""
+    """Render the selected visualization using its selected DataFrame."""
 
     result = state.get("result")
+    visualization_dataframe = state.get(
+        "visualization_dataframe"
+    )
     visualization = state.get("visualization")
 
     if result is None:
@@ -428,8 +446,16 @@ def visualization_rendering_node(
             "Agent state must contain a visualization specification."
         )
 
+    if visualization_dataframe is None:
+        visualization_dataframe = result
+
+    if not isinstance(visualization_dataframe, pd.DataFrame):
+        raise TypeError(
+            "Visualization dataframe must be a pandas DataFrame."
+        )
+
     rendered_visualization = VisualizationRenderer().render(
-        dataframe=result,
+        dataframe=visualization_dataframe,
         specification=visualization,
     )
 
@@ -449,6 +475,10 @@ def evidence_node(
     analysis = state.get("analysis")
     visualization = state.get("visualization")
     analytics_execution = state.get("analytics_execution")
+    visualization_source = state.get("visualization_source")
+    visualization_request_id = state.get(
+        "visualization_request_id"
+    )
 
     if result is None:
         raise ValueError(
@@ -471,6 +501,8 @@ def evidence_node(
         analysis=analysis,
         visualization=visualization,
         analytics_executions=analytics_executions,
+        visualization_source=visualization_source,
+        visualization_request_id=visualization_request_id,
     )
 
     return {

@@ -140,9 +140,7 @@ def build_agent(
 def test_runtime_executes_complete_agent_pipeline() -> None:
     """The public runtime should execute the complete agent pipeline."""
 
-    agent = build_agent()
-
-    response = agent.ask(
+    response = build_agent().ask(
         "What is revenue by region?"
     )
 
@@ -302,11 +300,21 @@ def test_runtime_planning_failure_does_not_block_core_pipeline() -> None:
         "PLAN_GENERATION_FAILED"
     )
 
+    assert response.visualization_source == "query_result"
+    assert response.visualization_request_id is None
+
+    assert response.evidence.visualization_source == "query_result"
+    assert response.evidence.visualization_request_id is None
+
+    assert response.visualization is not None
+    assert response.visualization.x_column == "region"
+    assert response.visualization.y_column == "revenue"
+
     assert response.error is None
 
 
-def test_runtime_selects_bar_visualization_for_dimension_measure() -> None:
-    """Categorical dimension + numeric measure should produce a bar chart."""
+def test_runtime_selects_analytics_bar_visualization() -> None:
+    """A supported segmentation result should drive bar visualization."""
 
     response = build_agent().ask(
         "What is revenue by region?"
@@ -314,8 +322,13 @@ def test_runtime_selects_bar_visualization_for_dimension_measure() -> None:
 
     assert response.visualization is not None
     assert response.visualization.chart_type == "bar"
-    assert response.visualization.x_column == "region"
-    assert response.visualization.y_column == "revenue"
+
+    # Analytics visualization uses the adapter's normalized columns.
+    assert response.visualization.x_column == "segment"
+    assert response.visualization.y_column == "total_value"
+
+    assert response.visualization_source == "analytics"
+    assert response.visualization_request_id == "revenue_by_region"
 
 
 def test_runtime_builds_grounded_evidence() -> None:
@@ -328,6 +341,7 @@ def test_runtime_builds_grounded_evidence() -> None:
     assert response.evidence is not None
     assert response.evidence.row_count == 3
 
+    # Evidence continues to describe the original SQL result.
     assert response.evidence.result_columns == (
         "region",
         "revenue",
@@ -352,9 +366,15 @@ def test_runtime_builds_grounded_evidence() -> None:
 
     assert len(response.evidence.analytics_executions) == 1
 
+    assert response.evidence.visualization_source == "analytics"
+    assert (
+        response.evidence.visualization_request_id
+        == "revenue_by_region"
+    )
+
 
 def test_runtime_exposes_rendered_plotly_figure() -> None:
-    """The public response should expose the rendered Plotly figure."""
+    """The public response should expose the analytics-derived Plotly figure."""
 
     response = build_agent().ask(
         "What is revenue by region?"
@@ -375,25 +395,25 @@ def test_runtime_exposes_rendered_plotly_figure() -> None:
     assert rendered.specification is response.visualization
 
     assert rendered.specification.chart_type == "bar"
-    assert rendered.specification.x_column == "region"
-    assert rendered.specification.y_column == "revenue"
+    assert rendered.specification.x_column == "segment"
+    assert rendered.specification.y_column == "total_value"
 
-    # Plotly Express creates one trace per color category.
-    assert len(rendered.figure.data) == 3
+    # Segmentation produces one bar trace using the normalized result.
+    assert len(rendered.figure.data) == 1
 
-    actual_values = {
-        trace.name: (
-            list(trace.x),
-            list(trace.y),
-        )
-        for trace in rendered.figure.data
-    }
+    trace = rendered.figure.data[0]
 
-    assert actual_values == {
-        "West": (["West"], [700.0]),
-        "East": (["East"], [200.0]),
-        "North": (["North"], [100.0]),
-    }
+    assert list(trace.x) == [
+        "West",
+        "East",
+        "North",
+    ]
+
+    assert list(trace.y) == [
+        700.0,
+        200.0,
+        100.0,
+    ]
 
 
 def test_runtime_evidence_uses_same_visualization_specification() -> None:
@@ -415,6 +435,27 @@ def test_runtime_evidence_uses_same_visualization_specification() -> None:
     assert (
         response.rendered_visualization.specification
         is response.visualization
+    )
+
+
+def test_runtime_evidence_and_response_share_visualization_provenance() -> None:
+    """Evidence and runtime response must expose matching provenance."""
+
+    response = build_agent().ask(
+        "What is revenue by region?"
+    )
+
+    assert response.evidence is not None
+
+    assert response.visualization_source == "analytics"
+    assert response.visualization_request_id == "revenue_by_region"
+
+    assert response.evidence.visualization_source == (
+        response.visualization_source
+    )
+
+    assert response.evidence.visualization_request_id == (
+        response.visualization_request_id
     )
 
 

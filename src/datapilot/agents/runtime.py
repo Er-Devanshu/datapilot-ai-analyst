@@ -47,6 +47,10 @@ class AgentResponse:
     analytics_execution: AnalyticsExecutionResult | None = None
     analytics_planning_error: str | None = None
 
+    # Visualization provenance metadata.
+    visualization_source: str | None = None
+    visualization_request_id: str | None = None
+
     @classmethod
     def from_state(
         cls,
@@ -89,6 +93,12 @@ class AgentResponse:
             ),
             analytics_planning_error=state.get(
                 "analytics_planning_error"
+            ),
+            visualization_source=state.get(
+                "visualization_source"
+            ),
+            visualization_request_id=state.get(
+                "visualization_request_id"
             ),
         )
 

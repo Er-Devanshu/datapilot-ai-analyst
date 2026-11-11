@@ -23,6 +23,7 @@ class DataPilotState(TypedDict, total=False):
     sql_valid: bool
     repair_attempts: int
 
+    # Original SQL execution output. Never replaced by visualization data.
     result: Any
     row_count: int
 
@@ -39,7 +40,11 @@ class DataPilotState(TypedDict, total=False):
     # Deterministic analytics execution.
     analytics_execution: AnalyticsExecutionResult
 
+    # Visualization selection and rendering.
     visualization: VisualizationSpec | None
+    visualization_dataframe: Any
+    visualization_source: str
+    visualization_request_id: str | None
     rendered_visualization: Any
 
     answer: str

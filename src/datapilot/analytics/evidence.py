@@ -37,6 +37,8 @@ class Evidence:
     root_cause: RootCauseResult | None = None
     visualization: VisualizationSpec | None = None
     analytics_executions: tuple[AnalysisExecution, ...] = ()
+    visualization_source: str | None = None
+    visualization_request_id: str | None = None
 
     def to_prompt_text(self) -> str:
         """Convert evidence into deterministic prompt context."""
@@ -198,6 +200,9 @@ class Evidence:
                     f"- Overall change: {root_cause.overall_change}",
                     f"- Overall direction: {root_cause.overall_direction}",
                     "- Drivers:",
+                    "- Interpretation constraint: These are "
+                    "deterministic contribution drivers, not proof "
+                    "of causal relationships.",
                 ]
             )
 
@@ -243,6 +248,8 @@ class Evidence:
                     f"- Sort by: {visualization.sort_by}",
                     f"- Sort descending: {visualization.sort_descending}",
                     f"- Limit: {visualization.limit}",
+                    f"- Visualization source: {self.visualization_source}",
+                    f"- Analytics request ID: {self.visualization_request_id}",
                 ]
             )
         else:
@@ -285,6 +292,8 @@ class EvidenceBuilder:
         root_cause: RootCauseResult | None = None,
         visualization: VisualizationSpec | None = None,
         analytics_executions: tuple[AnalysisExecution, ...] = (),
+        visualization_source: str | None = None,
+        visualization_request_id: str | None = None,
     ) -> Evidence:
         """Build evidence from deterministic analytical results."""
 
@@ -304,6 +313,37 @@ class EvidenceBuilder:
         ):
             raise TypeError(
                 "Analytics executions must contain AnalysisExecution values."
+            )
+
+        if visualization_source not in (
+            None,
+            "analytics",
+            "query_result",
+        ):
+            raise ValueError(
+                "Visualization source must be analytics, query_result, or None."
+            )
+
+        if visualization_source == "analytics":
+            if (
+                not isinstance(visualization_request_id, str)
+                or not visualization_request_id.strip()
+            ):
+                raise ValueError(
+                    "Analytics visualization requires a request ID."
+                )
+
+            if not any(
+                execution.request_id == visualization_request_id
+                for execution in analytics_executions
+            ):
+                raise ValueError(
+                    "Visualization request ID must match an analytics execution."
+                )
+
+        elif visualization_request_id is not None:
+            raise ValueError(
+                "A visualization request ID requires analytics as its source."
             )
 
         if analysis is None:
@@ -333,4 +373,6 @@ class EvidenceBuilder:
             root_cause=root_cause,
             visualization=visualization,
             analytics_executions=analytics_executions,
+            visualization_source=visualization_source,
+            visualization_request_id=visualization_request_id,
         )
