@@ -1,10 +1,14 @@
 
 from __future__ import annotations
 
+import pandas as pd
+
 from datapilot.agents.state import DataPilotState
 from datapilot.analytics.analyzer import ResultAnalyzer
 from datapilot.analytics.answer import AnswerComposer
 from datapilot.analytics.evidence import EvidenceBuilder
+from datapilot.analytics.executor import AnalyticsExecutor
+from datapilot.analytics.planner import AnalyticsPlanner
 from datapilot.data.context import SchemaContextBuilder
 from datapilot.data.schema import SchemaInspector
 from datapilot.llm.local import LocalLLM
@@ -260,6 +264,96 @@ def analysis_node(
         **state,
         "analysis": analysis,
         "status": "analysis_complete",
+    }
+
+
+def analytics_planning_node(
+    state: DataPilotState,
+    llm: LocalLLM,
+    change_value_columns: set[str] | frozenset[str] | None = None,
+) -> DataPilotState:
+    """Generate and validate a structured analytics plan."""
+
+    question = state.get(
+        "question",
+        "",
+    ).strip()
+
+    result = state.get("result")
+
+    if not question:
+        raise ValueError(
+            "Agent state must contain a question."
+        )
+
+    if result is None:
+        raise ValueError(
+            "Agent state must contain an executed result."
+        )
+
+    if not isinstance(result, pd.DataFrame):
+        raise TypeError(
+            "Executed result must be a pandas DataFrame."
+        )
+
+    planning_result = AnalyticsPlanner(
+        llm=llm,
+    ).plan(
+        question=question,
+        dataframe=result,
+        change_value_columns=change_value_columns,
+    )
+
+    return {
+        **state,
+        "analytics_plan": planning_result.plan,
+        "analytics_plan_validation": planning_result.validation,
+        "analytics_planning_result": planning_result,
+        "status": "analytics_plan_ready",
+    }
+
+
+def analytics_execution_node(
+    state: DataPilotState,
+    executor: AnalyticsExecutor | None = None,
+) -> DataPilotState:
+    """Execute the accepted deterministic analytics requests."""
+
+    result = state.get("result")
+    validation = state.get(
+        "analytics_plan_validation"
+    )
+
+    if result is None:
+        raise ValueError(
+            "Agent state must contain an executed result."
+        )
+
+    if not isinstance(result, pd.DataFrame):
+        raise TypeError(
+            "Executed result must be a pandas DataFrame."
+        )
+
+    if validation is None:
+        raise ValueError(
+            "Agent state must contain analytics plan validation."
+        )
+
+    analytics_executor = (
+        executor
+        if executor is not None
+        else AnalyticsExecutor()
+    )
+
+    execution_result = analytics_executor.execute(
+        dataframe=result,
+        validation=validation,
+    )
+
+    return {
+        **state,
+        "analytics_execution": execution_result,
+        "status": "analytics_executed",
     }
 
 

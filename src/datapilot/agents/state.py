@@ -1,7 +1,14 @@
+
 from __future__ import annotations
 
 from typing import Any, TypedDict
 
+from datapilot.analytics.executor import AnalyticsExecutionResult
+from datapilot.analytics.planning import (
+    AnalyticsPlan,
+    AnalyticsPlanValidation,
+)
+from datapilot.analytics.planner import AnalyticsPlanningResult
 from datapilot.visualization.models import VisualizationSpec
 
 
@@ -19,8 +26,17 @@ class DataPilotState(TypedDict, total=False):
     result: Any
     row_count: int
 
+    # General deterministic result analysis.
     analysis: Any
     evidence: Any
+
+    # Structured analytics planning and validation.
+    analytics_plan: AnalyticsPlan
+    analytics_plan_validation: AnalyticsPlanValidation
+    analytics_planning_result: AnalyticsPlanningResult
+
+    # Deterministic analytics execution.
+    analytics_execution: AnalyticsExecutionResult
 
     visualization: VisualizationSpec | None
 
