@@ -9,6 +9,12 @@ from datapilot.agents.runtime import (
     AgentResponse,
     DataPilotAgent,
 )
+from datapilot.analytics.executor import AnalyticsExecutionResult
+from datapilot.analytics.planner import AnalyticsPlanningResult
+from datapilot.analytics.planning import (
+    AnalyticsPlan,
+    AnalyticsPlanValidation,
+)
 from datapilot.visualization.models import VisualizationSpec
 from datapilot.visualization.renderer import RenderedVisualization
 
@@ -85,6 +91,93 @@ def test_agent_response_from_state() -> None:
     assert response.error is None
 
 
+def test_agent_response_exposes_structured_analytics_state() -> None:
+    """Public response should preserve structured analytics objects."""
+
+    plan = AnalyticsPlan(
+        question="What is revenue by region?",
+        requests=(),
+    )
+
+    validation = AnalyticsPlanValidation(
+        accepted_requests=(),
+        skipped_analyses=(),
+        fatal_errors=(),
+    )
+
+    planning_result = AnalyticsPlanningResult(
+        plan=plan,
+        validation=validation,
+        prompt="planning prompt",
+        model_name="test-model",
+    )
+
+    execution = AnalyticsExecutionResult(
+        executions=(),
+        skipped_analyses=(),
+        fatal_errors=(),
+    )
+
+    state = {
+        "question": "What is revenue by region?",
+        "status": "answer_composed",
+        "analytics_plan": plan,
+        "analytics_plan_validation": validation,
+        "analytics_planning_result": planning_result,
+        "analytics_execution": execution,
+        "analytics_planning_error": None,
+    }
+
+    response = AgentResponse.from_state(state)
+
+    assert response.analytics_plan is plan
+    assert response.analytics_plan_validation is validation
+    assert response.analytics_planning_result is planning_result
+    assert response.analytics_execution is execution
+    assert response.analytics_planning_error is None
+
+
+def test_agent_response_exposes_planning_failure() -> None:
+    """Public response should expose a planning-generation failure."""
+
+    plan = AnalyticsPlan(
+        question="What is revenue by region?",
+        requests=(),
+    )
+
+    validation = AnalyticsPlanValidation(
+        accepted_requests=(),
+        skipped_analyses=(),
+        fatal_errors=(),
+    )
+
+    planning_result = AnalyticsPlanningResult(
+        plan=plan,
+        validation=validation,
+        prompt="",
+        model_name="unknown",
+    )
+
+    state = {
+        "question": "What is revenue by region?",
+        "status": "answer_composed",
+        "analytics_plan": plan,
+        "analytics_plan_validation": validation,
+        "analytics_planning_result": planning_result,
+        "analytics_planning_error": "Invalid JSON response.",
+    }
+
+    response = AgentResponse.from_state(state)
+
+    assert response.analytics_plan is plan
+    assert response.analytics_plan_validation is validation
+    assert response.analytics_planning_result is planning_result
+    assert response.analytics_planning_error == (
+        "Invalid JSON response."
+    )
+    assert response.error is None
+
+
 def test_agent_response_handles_missing_optional_state() -> None:
     """Optional response fields should have safe defaults."""
 
@@ -107,6 +200,34 @@ def test_agent_response_handles_missing_optional_state() -> None:
     assert response.status == "started"
     assert response.error is None
 
+    assert response.analytics_plan is None
+    assert response.analytics_plan_validation is None
+    assert response.analytics_planning_result is None
+    assert response.analytics_execution is None
+    assert response.analytics_planning_error is None
+
+
+def test_agent_response_constructor_remains_backward_compatible() -> None:
+    """The original response constructor remains valid."""
+
+    response = AgentResponse(
+        question="Show revenue.",
+        status="started",
+        sql=None,
+        result=None,
+        row_count=0,
+        analysis=None,
+        visualization=None,
+        evidence=None,
+        answer=None,
+    )
+
+    assert response.analytics_plan is None
+    assert response.analytics_plan_validation is None
+    assert response.analytics_planning_result is None
+    assert response.analytics_execution is None
+    assert response.analytics_planning_error is None
+
 
 def test_agent_rejects_empty_question() -> None:
     """The public runtime should reject empty questions."""
@@ -126,6 +247,15 @@ def test_agent_rejects_whitespace_question() -> None:
         agent.ask("   ")
 
 
+def test_agent_rejects_non_string_question() -> None:
+    """The public runtime should reject non-string questions."""
+
+    agent = object.__new__(DataPilotAgent)
+
+    with pytest.raises(ValueError):
+        agent.ask(None)
+
+
 def test_agent_rejects_negative_repair_attempts() -> None:
     """Repair attempts cannot be negative."""
 
@@ -136,3 +266,30 @@ def test_agent_rejects_negative_repair_attempts() -> None:
             executor=None,
             max_repair_attempts=-1,
         )
+
+
+def test_agent_rejects_invalid_trusted_change_columns() -> None:
+    """Trusted change columns must be supplied as a set or frozenset."""
+
+    with pytest.raises(ValueError):
+        DataPilotAgent(
+            llm=None,
+            inspector=None,
+            executor=None,
+            change_value_columns=["revenue_change"],
+        )
+
+
+def test_agent_accepts_trusted_change_columns() -> None:
+    """Trusted change columns should be retained immutably."""
+
+    agent = DataPilotAgent(
+        llm=None,
+        inspector=None,
+        executor=None,
+        change_value_columns={"revenue_change"},
+    )
+
+    assert agent.change_value_columns == frozenset(
+        {"revenue_change"}
+    )

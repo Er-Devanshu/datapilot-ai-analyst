@@ -9,6 +9,12 @@ import pandas as pd
 from datapilot.agents.graph import build_datapilot_graph
 from datapilot.agents.state import DataPilotState
 from datapilot.analytics.evidence import Evidence
+from datapilot.analytics.executor import AnalyticsExecutionResult
+from datapilot.analytics.planner import AnalyticsPlanningResult
+from datapilot.analytics.planning import (
+    AnalyticsPlan,
+    AnalyticsPlanValidation,
+)
 from datapilot.data.schema import SchemaInspector
 from datapilot.llm.local import LocalLLM
 from datapilot.sql.executor import SQLExecutor
@@ -31,6 +37,15 @@ class AgentResponse:
     answer: str | None
     error: str | None = None
     rendered_visualization: RenderedVisualization | None = None
+
+    # Structured analytics outputs.
+    # These fields are optional to preserve compatibility with
+    # existing AgentResponse construction and consumers.
+    analytics_plan: AnalyticsPlan | None = None
+    analytics_plan_validation: AnalyticsPlanValidation | None = None
+    analytics_planning_result: AnalyticsPlanningResult | None = None
+    analytics_execution: AnalyticsExecutionResult | None = None
+    analytics_planning_error: str | None = None
 
     @classmethod
     def from_state(
@@ -62,6 +77,19 @@ class AgentResponse:
             rendered_visualization=state.get(
                 "rendered_visualization"
             ),
+            analytics_plan=state.get("analytics_plan"),
+            analytics_plan_validation=state.get(
+                "analytics_plan_validation"
+            ),
+            analytics_planning_result=state.get(
+                "analytics_planning_result"
+            ),
+            analytics_execution=state.get(
+                "analytics_execution"
+            ),
+            analytics_planning_error=state.get(
+                "analytics_planning_error"
+            ),
         )
 
 
@@ -74,6 +102,7 @@ class DataPilotAgent:
         inspector: SchemaInspector,
         executor: SQLExecutor,
         max_repair_attempts: int = 2,
+        change_value_columns: set[str] | frozenset[str] | None = None,
     ) -> None:
         """Initialize the DataPilot runtime."""
 
@@ -82,16 +111,41 @@ class DataPilotAgent:
                 "max_repair_attempts cannot be negative."
             )
 
+        if change_value_columns is not None:
+            if not isinstance(
+                change_value_columns,
+                (set, frozenset),
+            ):
+                raise ValueError(
+                    "Change value columns must be a set or frozenset."
+                )
+
+            if not all(
+                isinstance(column, str) and column.strip()
+                for column in change_value_columns
+            ):
+                raise ValueError(
+                    "Trusted change column names must be non-empty strings."
+                )
+
+            trusted_change_columns = frozenset(
+                change_value_columns
+            )
+        else:
+            trusted_change_columns = None
+
         self.llm = llm
         self.inspector = inspector
         self.executor = executor
         self.max_repair_attempts = max_repair_attempts
+        self.change_value_columns = trusted_change_columns
 
         self.graph = build_datapilot_graph(
             llm=llm,
             inspector=inspector,
             executor=executor,
             max_repair_attempts=max_repair_attempts,
+            change_value_columns=trusted_change_columns,
         )
 
     def ask(
@@ -100,7 +154,7 @@ class DataPilotAgent:
     ) -> AgentResponse:
         """Execute the complete DataPilot pipeline."""
 
-        if not question.strip():
+        if not isinstance(question, str) or not question.strip():
             raise ValueError(
                 "Question cannot be empty."
             )
