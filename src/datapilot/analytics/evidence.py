@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -10,6 +11,7 @@ from datapilot.analytics.analyzer import (
     NumericSummary,
 )
 from datapilot.analytics.contribution import ContributionResult
+from datapilot.analytics.executor import AnalysisExecution
 from datapilot.analytics.period import PeriodComparison
 from datapilot.analytics.root_cause import RootCauseResult
 from datapilot.analytics.segmentation import SegmentationResult
@@ -34,6 +36,7 @@ class Evidence:
     segmentation: SegmentationResult | None = None
     root_cause: RootCauseResult | None = None
     visualization: VisualizationSpec | None = None
+    analytics_executions: tuple[AnalysisExecution, ...] = ()
 
     def to_prompt_text(self) -> str:
         """Convert evidence into deterministic prompt context."""
@@ -60,12 +63,7 @@ class Evidence:
         else:
             lines.append("- None")
 
-        lines.extend(
-            [
-                "",
-                "CATEGORY SUMMARIES:",
-            ]
-        )
+        lines.extend(["", "CATEGORY SUMMARIES:"])
 
         if self.category_summaries:
             for summary in self.category_summaries:
@@ -82,12 +80,7 @@ class Evidence:
         else:
             lines.append("- None")
 
-        lines.extend(
-            [
-                "",
-                "TREND ANALYSIS:",
-            ]
-        )
+        lines.extend(["", "TREND ANALYSIS:"])
 
         if self.trend is not None:
             lines.extend(
@@ -99,10 +92,9 @@ class Evidence:
                     f"- Absolute change: {self.trend.absolute_change}",
                     f"- Percentage change: {self.trend.percentage_change}",
                     f"- Direction: {self.trend.direction}",
+                    "- Trend points:",
                 ]
             )
-
-            lines.append("- Trend points:")
 
             for point in self.trend.points:
                 lines.append(
@@ -111,16 +103,10 @@ class Evidence:
         else:
             lines.append("- None")
 
-        lines.extend(
-            [
-                "",
-                "PERIOD COMPARISON:",
-            ]
-        )
+        lines.extend(["", "PERIOD COMPARISON:"])
 
         if self.period_comparison is not None:
             comparison = self.period_comparison
-
             lines.extend(
                 [
                     f"- Reference value: {comparison.value_a}",
@@ -133,86 +119,59 @@ class Evidence:
         else:
             lines.append("- None")
 
-        lines.extend(
-            [
-                "",
-                "VARIANCE ANALYSIS:",
-            ]
-        )
+        lines.extend(["", "VARIANCE ANALYSIS:"])
 
         if self.variance is not None:
             variance = self.variance
-
             lines.extend(
                 [
                     f"- Actual value: {variance.actual_value}",
                     f"- Reference value: {variance.reference_value}",
                     f"- Absolute variance: {variance.absolute_variance}",
-                    f"- Percentage variance: "
-                    f"{variance.percentage_variance}",
+                    f"- Percentage variance: {variance.percentage_variance}",
                     f"- Direction: {variance.direction}",
                 ]
             )
         else:
             lines.append("- None")
 
-        lines.extend(
-            [
-                "",
-                "CONTRIBUTION ANALYSIS:",
-            ]
-        )
+        lines.extend(["", "CONTRIBUTION ANALYSIS:"])
 
         if self.contribution is not None:
             contribution = self.contribution
-
             lines.extend(
                 [
-                    f"- Dimension column: "
-                    f"{contribution.dimension_column}",
-                    f"- Value column: "
-                    f"{contribution.value_column}",
-                    f"- Total change: "
-                    f"{contribution.total_change}",
+                    f"- Dimension column: {contribution.dimension_column}",
+                    f"- Value column: {contribution.value_column}",
+                    f"- Total change: {contribution.total_change}",
+                    "- Contributions:",
                 ]
             )
-
-            lines.append("- Contributions:")
 
             for item in contribution.contributions:
                 lines.extend(
                     [
                         f"  - Category: {item.category}",
                         f"    Value: {item.value}",
-                        f"    Contribution percentage: "
+                        "    Contribution percentage: "
                         f"{item.contribution_percentage}",
                     ]
                 )
         else:
             lines.append("- None")
 
-        lines.extend(
-            [
-                "",
-                "SEGMENTATION ANALYSIS:",
-            ]
-        )
+        lines.extend(["", "SEGMENTATION ANALYSIS:"])
 
         if self.segmentation is not None:
             segmentation = self.segmentation
-
             lines.extend(
                 [
-                    f"- Dimension column: "
-                    f"{segmentation.dimension_column}",
-                    f"- Value column: "
-                    f"{segmentation.value_column}",
-                    f"- Total value: "
-                    f"{segmentation.total_value}",
+                    f"- Dimension column: {segmentation.dimension_column}",
+                    f"- Value column: {segmentation.value_column}",
+                    f"- Total value: {segmentation.total_value}",
+                    "- Segments:",
                 ]
             )
-
-            lines.append("- Segments:")
 
             for segment in segmentation.segments:
                 lines.extend(
@@ -220,48 +179,34 @@ class Evidence:
                         f"  - Segment: {segment.segment}",
                         f"    Row count: {segment.row_count}",
                         f"    Total value: {segment.total_value}",
-                        f"    Average value: "
-                        f"{segment.average_value}",
-                        f"    Minimum value: "
-                        f"{segment.minimum_value}",
-                        f"    Maximum value: "
-                        f"{segment.maximum_value}",
+                        f"    Average value: {segment.average_value}",
+                        f"    Minimum value: {segment.minimum_value}",
+                        f"    Maximum value: {segment.maximum_value}",
                     ]
                 )
         else:
             lines.append("- None")
 
-        lines.extend(
-            [
-                "",
-                "ROOT-CAUSE ANALYSIS:",
-            ]
-        )
+        lines.extend(["", "ROOT-CAUSE ANALYSIS:"])
 
         if self.root_cause is not None:
             root_cause = self.root_cause
-
             lines.extend(
                 [
-                    f"- Dimension column: "
-                    f"{root_cause.dimension_column}",
-                    f"- Value column: "
-                    f"{root_cause.value_column}",
-                    f"- Overall change: "
-                    f"{root_cause.overall_change}",
-                    f"- Overall direction: "
-                    f"{root_cause.overall_direction}",
+                    f"- Dimension column: {root_cause.dimension_column}",
+                    f"- Value column: {root_cause.value_column}",
+                    f"- Overall change: {root_cause.overall_change}",
+                    f"- Overall direction: {root_cause.overall_direction}",
+                    "- Drivers:",
                 ]
             )
-
-            lines.append("- Drivers:")
 
             for driver in root_cause.drivers:
                 lines.extend(
                     [
                         f"  - Category: {driver.category}",
                         f"    Value: {driver.value}",
-                        f"    Contribution percentage: "
+                        "    Contribution percentage: "
                         f"{driver.contribution_percentage}",
                         f"    Direction: {driver.direction}",
                     ]
@@ -269,36 +214,35 @@ class Evidence:
         else:
             lines.append("- None")
 
-        lines.extend(
-            [
-                "",
-                "VISUALIZATION:",
-            ]
-        )
+        lines.extend(["", "ANALYTICS EXECUTION RESULTS:"])
+
+        if self.analytics_executions:
+            for execution in self.analytics_executions:
+                lines.extend(
+                    [
+                        f"- Request ID: {execution.request_id}",
+                        f"  Analysis type: {execution.analysis_type.value}",
+                        f"  Deterministic result: {execution.result!r}",
+                    ]
+                )
+        else:
+            lines.append("- None")
+
+        lines.extend(["", "VISUALIZATION:"])
 
         if self.visualization is not None:
             visualization = self.visualization
-
             lines.extend(
                 [
-                    f"- Chart type: "
-                    f"{visualization.chart_type}",
-                    f"- X column: "
-                    f"{visualization.x_column}",
-                    f"- Y column: "
-                    f"{visualization.y_column}",
-                    f"- Color column: "
-                    f"{visualization.color_column}",
-                    f"- Title: "
-                    f"{visualization.title}",
-                    f"- Orientation: "
-                    f"{visualization.orientation}",
-                    f"- Sort by: "
-                    f"{visualization.sort_by}",
-                    f"- Sort descending: "
-                    f"{visualization.sort_descending}",
-                    f"- Limit: "
-                    f"{visualization.limit}",
+                    f"- Chart type: {visualization.chart_type}",
+                    f"- X column: {visualization.x_column}",
+                    f"- Y column: {visualization.y_column}",
+                    f"- Color column: {visualization.color_column}",
+                    f"- Title: {visualization.title}",
+                    f"- Orientation: {visualization.orientation}",
+                    f"- Sort by: {visualization.sort_by}",
+                    f"- Sort descending: {visualization.sort_descending}",
+                    f"- Limit: {visualization.limit}",
                 ]
             )
         else:
@@ -340,30 +284,42 @@ class EvidenceBuilder:
         segmentation: SegmentationResult | None = None,
         root_cause: RootCauseResult | None = None,
         visualization: VisualizationSpec | None = None,
+        analytics_executions: tuple[AnalysisExecution, ...] = (),
     ) -> Evidence:
         """Build evidence from deterministic analytical results."""
+
+        if not isinstance(dataframe, pd.DataFrame):
+            raise TypeError(
+                "Dataframe must be a pandas DataFrame."
+            )
+
+        if not isinstance(analytics_executions, tuple):
+            raise TypeError(
+                "Analytics executions must be provided as a tuple."
+            )
+
+        if not all(
+            isinstance(item, AnalysisExecution)
+            for item in analytics_executions
+        ):
+            raise TypeError(
+                "Analytics executions must contain AnalysisExecution values."
+            )
 
         if analysis is None:
             from datapilot.analytics.analyzer import ResultAnalyzer
 
-            analysis = ResultAnalyzer().analyze(
-                dataframe
-            )
+            analysis = ResultAnalyzer().analyze(dataframe)
 
         if analysis.row_count != len(dataframe):
             raise ValueError(
-                "Analysis row count does not match "
-                "the query result."
+                "Analysis row count does not match the query result."
             )
 
         return Evidence(
             row_count=analysis.row_count,
-            numeric_summaries=tuple(
-                analysis.numeric_summaries
-            ),
-            category_summaries=tuple(
-                analysis.category_summaries
-            ),
+            numeric_summaries=tuple(analysis.numeric_summaries),
+            category_summaries=tuple(analysis.category_summaries),
             result_columns=tuple(
                 str(column)
                 for column in dataframe.columns
@@ -376,4 +332,5 @@ class EvidenceBuilder:
             segmentation=segmentation,
             root_cause=root_cause,
             visualization=visualization,
+            analytics_executions=analytics_executions,
         )

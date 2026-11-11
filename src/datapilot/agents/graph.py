@@ -7,6 +7,8 @@ from langgraph.graph import END, START, StateGraph
 
 from datapilot.agents.nodes import (
     analysis_node,
+    analytics_execution_node,
+    analytics_planning_node,
     answer_composer_node,
     evidence_node,
     schema_node,
@@ -28,6 +30,7 @@ def build_datapilot_graph(
     inspector: SchemaInspector,
     executor: SQLExecutor,
     max_repair_attempts: int = 2,
+    change_value_columns: set[str] | frozenset[str] | None = None,
 ):
     """Build the DataPilot LangGraph agent."""
 
@@ -35,6 +38,23 @@ def build_datapilot_graph(
         raise ValueError(
             "max_repair_attempts cannot be negative."
         )
+
+    if change_value_columns is not None:
+        if not isinstance(
+            change_value_columns,
+            (set, frozenset),
+        ):
+            raise ValueError(
+                "Change value columns must be a set or frozenset."
+            )
+
+        if not all(
+            isinstance(column, str) and column.strip()
+            for column in change_value_columns
+        ):
+            raise ValueError(
+                "Trusted change column names must be non-empty strings."
+            )
 
     graph = StateGraph(DataPilotState)
 
@@ -81,6 +101,20 @@ def build_datapilot_graph(
     graph.add_node(
         "analyze_result",
         analysis_node,
+    )
+
+    graph.add_node(
+        "plan_analytics",
+        partial(
+            analytics_planning_node,
+            llm=llm,
+            change_value_columns=change_value_columns,
+        ),
+    )
+
+    graph.add_node(
+        "execute_analytics",
+        analytics_execution_node,
     )
 
     graph.add_node(
@@ -143,20 +177,9 @@ def build_datapilot_graph(
         failure_node,
     )
 
-    graph.add_edge(
-        START,
-        "schema",
-    )
-
-    graph.add_edge(
-        "schema",
-        "generate_sql",
-    )
-
-    graph.add_edge(
-        "generate_sql",
-        "validate_sql",
-    )
+    graph.add_edge(START, "schema")
+    graph.add_edge("schema", "generate_sql")
+    graph.add_edge("generate_sql", "validate_sql")
 
     graph.add_conditional_edges(
         "validate_sql",
@@ -168,44 +191,15 @@ def build_datapilot_graph(
         },
     )
 
-    graph.add_edge(
-        "repair_sql",
-        "validate_sql",
-    )
-
-    graph.add_edge(
-        "execute_sql",
-        "analyze_result",
-    )
-
-    graph.add_edge(
-        "analyze_result",
-        "select_visualization",
-    )
-
-    graph.add_edge(
-        "select_visualization",
-        "render_visualization",
-    )
-
-    graph.add_edge(
-        "render_visualization",
-        "build_evidence",
-    )
-
-    graph.add_edge(
-        "build_evidence",
-        "compose_answer",
-    )
-
-    graph.add_edge(
-        "compose_answer",
-        END,
-    )
-
-    graph.add_edge(
-        "failure",
-        END,
-    )
+    graph.add_edge("repair_sql", "validate_sql")
+    graph.add_edge("execute_sql", "analyze_result")
+    graph.add_edge("analyze_result", "plan_analytics")
+    graph.add_edge("plan_analytics", "execute_analytics")
+    graph.add_edge("execute_analytics", "select_visualization")
+    graph.add_edge("select_visualization", "render_visualization")
+    graph.add_edge("render_visualization", "build_evidence")
+    graph.add_edge("build_evidence", "compose_answer")
+    graph.add_edge("compose_answer", END)
+    graph.add_edge("failure", END)
 
     return graph.compile()

@@ -34,18 +34,12 @@ class DataPilotState(TypedDict, total=False):
     analytics_plan: AnalyticsPlan
     analytics_plan_validation: AnalyticsPlanValidation
     analytics_planning_result: AnalyticsPlanningResult
+    analytics_planning_error: str | None
 
     # Deterministic analytics execution.
     analytics_execution: AnalyticsExecutionResult
 
     visualization: VisualizationSpec | None
-
-    # Rendered visualization metadata.
-    #
-    # We intentionally keep this as Any in the graph state rather than
-    # storing a Plotly Figure directly in the TypedDict contract.
-    # This keeps the state flexible for future output formats such as
-    # HTML, JSON, PNG, or frontend-specific representations.
     rendered_visualization: Any
 
     answer: str

@@ -8,7 +8,16 @@ from datapilot.analytics.analyzer import ResultAnalyzer
 from datapilot.analytics.answer import AnswerComposer
 from datapilot.analytics.evidence import EvidenceBuilder
 from datapilot.analytics.executor import AnalyticsExecutor
-from datapilot.analytics.planner import AnalyticsPlanner
+from datapilot.analytics.planner import (
+    AnalyticsPlanGenerationError,
+    AnalyticsPlanner,
+    AnalyticsPlanningResult,
+)
+from datapilot.analytics.planning import (
+    AnalyticsPlan,
+    AnalyticsPlanValidation,
+    PlanValidationIssue,
+)
 from datapilot.data.context import SchemaContextBuilder
 from datapilot.data.schema import SchemaInspector
 from datapilot.llm.local import LocalLLM
@@ -70,9 +79,7 @@ def sql_generation_node(
             "Agent state must contain schema context."
         )
 
-    generator = SQLGenerator(llm)
-
-    result = generator.generate(
+    result = SQLGenerator(llm).generate(
         question=question,
         schema_context=schema_context,
     )
@@ -115,9 +122,7 @@ def sql_validation_node(
         for table in schema
     }
 
-    validator = SQLValidator()
-
-    result = validator.validate(
+    result = SQLValidator().validate(
         sql=sql,
         allowed_tables=policy_tables,
         allowed_columns=policy_columns,
@@ -126,9 +131,7 @@ def sql_validation_node(
     return {
         **state,
         "sql_valid": result.valid,
-        "validation_errors": list(
-            result.errors
-        ),
+        "validation_errors": list(result.errors),
         "status": (
             "sql_validated"
             if result.valid
@@ -188,14 +191,10 @@ def sql_repair_node(
             "Agent state must contain validation errors."
         )
 
-    repairer = SQLRepairer(llm)
-
-    result = repairer.repair(
+    result = SQLRepairer(llm).repair(
         question=question,
         sql=sql,
-        errors=tuple(
-            validation_errors
-        ),
+        errors=tuple(validation_errors),
         schema_context=schema_context,
     )
 
@@ -230,8 +229,7 @@ def sql_execution_node(
 
     if not sql_valid:
         raise ValueError(
-            "Cannot execute SQL that has not "
-            "passed validation."
+            "Cannot execute SQL that has not passed validation."
         )
 
     result = executor.execute(sql)
@@ -256,9 +254,7 @@ def analysis_node(
             "Agent state must contain an executed result."
         )
 
-    analysis = ResultAnalyzer().analyze(
-        result
-    )
+    analysis = ResultAnalyzer().analyze(result)
 
     return {
         **state,
@@ -272,7 +268,7 @@ def analytics_planning_node(
     llm: LocalLLM,
     change_value_columns: set[str] | frozenset[str] | None = None,
 ) -> DataPilotState:
-    """Generate and validate a structured analytics plan."""
+    """Generate an analytics plan without blocking the core agent."""
 
     question = state.get(
         "question",
@@ -296,19 +292,54 @@ def analytics_planning_node(
             "Executed result must be a pandas DataFrame."
         )
 
-    planning_result = AnalyticsPlanner(
-        llm=llm,
-    ).plan(
-        question=question,
-        dataframe=result,
-        change_value_columns=change_value_columns,
-    )
+    try:
+        planning_result = AnalyticsPlanner(
+            llm=llm,
+        ).plan(
+            question=question,
+            dataframe=result,
+            change_value_columns=change_value_columns,
+        )
+
+    except AnalyticsPlanGenerationError as exc:
+        plan = AnalyticsPlan(
+            question=question,
+            requests=(),
+        )
+
+        validation = AnalyticsPlanValidation(
+            accepted_requests=(),
+            skipped_analyses=(),
+            fatal_errors=(
+                PlanValidationIssue(
+                    code="PLAN_GENERATION_FAILED",
+                    message=str(exc),
+                ),
+            ),
+        )
+
+        planning_result = AnalyticsPlanningResult(
+            plan=plan,
+            validation=validation,
+            prompt="",
+            model_name="unknown",
+        )
+
+        return {
+            **state,
+            "analytics_plan": plan,
+            "analytics_plan_validation": validation,
+            "analytics_planning_result": planning_result,
+            "analytics_planning_error": str(exc),
+            "status": "analytics_plan_failed",
+        }
 
     return {
         **state,
         "analytics_plan": planning_result.plan,
         "analytics_plan_validation": planning_result.validation,
         "analytics_planning_result": planning_result,
+        "analytics_planning_error": None,
         "status": "analytics_plan_ready",
     }
 
@@ -320,6 +351,7 @@ def analytics_execution_node(
     """Execute the accepted deterministic analytics requests."""
 
     result = state.get("result")
+
     validation = state.get(
         "analytics_plan_validation"
     )
@@ -369,9 +401,7 @@ def visualization_node(
             "Agent state must contain an executed result."
         )
 
-    selection = VisualizationSelector().select(
-        result
-    )
+    selection = VisualizationSelector().select(result)
 
     return {
         **state,
@@ -413,11 +443,12 @@ def visualization_rendering_node(
 def evidence_node(
     state: DataPilotState,
 ) -> DataPilotState:
-    """Build grounded evidence from deterministic analysis."""
+    """Build grounded evidence from all deterministic analyses."""
 
     result = state.get("result")
     analysis = state.get("analysis")
     visualization = state.get("visualization")
+    analytics_execution = state.get("analytics_execution")
 
     if result is None:
         raise ValueError(
@@ -429,10 +460,17 @@ def evidence_node(
             "Agent state must contain analysis."
         )
 
+    analytics_executions = (
+        analytics_execution.executions
+        if analytics_execution is not None
+        else ()
+    )
+
     evidence = EvidenceBuilder().build(
         dataframe=result,
         analysis=analysis,
         visualization=visualization,
+        analytics_executions=analytics_executions,
     )
 
     return {
@@ -453,9 +491,7 @@ def answer_composer_node(
         "",
     ).strip()
 
-    evidence = state.get(
-        "evidence"
-    )
+    evidence = state.get("evidence")
 
     if not question:
         raise ValueError(
@@ -467,9 +503,7 @@ def answer_composer_node(
             "Agent state must contain evidence."
         )
 
-    composer = AnswerComposer(llm)
-
-    result = composer.compose(
+    result = AnswerComposer(llm).compose(
         question=question,
         evidence=evidence,
     )
