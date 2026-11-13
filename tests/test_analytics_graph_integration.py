@@ -112,7 +112,10 @@ def test_evidence_node_includes_all_analytics_executions() -> None:
     assert "ANALYTICS EXECUTION RESULTS:" in prompt_text
     assert "june_july_variance" in prompt_text
     assert "variance" in prompt_text
-    assert "absolute_variance=-15.0" in prompt_text
+    assert "Result type: VarianceResult" in prompt_text
+    assert "Absolute variance: -15.0" in prompt_text
+    assert "Percentage variance: -15.0" in prompt_text
+    assert "Direction: below_reference" in prompt_text
     assert result["status"] == "evidence_ready"
 
 

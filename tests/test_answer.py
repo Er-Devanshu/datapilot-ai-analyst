@@ -1,3 +1,4 @@
+
 import pandas as pd
 import pytest
 
@@ -43,6 +44,22 @@ def build_test_evidence():
     )
 
 
+def build_prompt(
+    question: str = "What is the total revenue?",
+) -> str:
+    """Generate and return the prompt supplied to the fake LLM."""
+
+    llm = FakeLLM()
+
+    AnswerComposer(llm).compose(
+        question=question,
+        evidence=build_test_evidence(),
+    )
+
+    assert llm.last_prompt is not None
+    return llm.last_prompt
+
+
 def test_answer_composer_returns_grounded_answer() -> None:
     llm = FakeLLM(
         response="Total revenue is ₹600."
@@ -67,56 +84,18 @@ def test_answer_composer_returns_grounded_answer() -> None:
 
 
 def test_answer_composer_prompt_contains_question_and_evidence() -> None:
-    llm = FakeLLM()
+    prompt = build_prompt()
 
-    composer = AnswerComposer(llm)
-
-    composer.compose(
-        question="What is the total revenue?",
-        evidence=build_test_evidence(),
-    )
-
-    assert llm.last_prompt is not None
-
-    assert "What is the total revenue?" in (
-        llm.last_prompt
-    )
-
-    assert "Currency: INR" in (
-        llm.last_prompt
-    )
-
-    assert "Column: revenue" in (
-        llm.last_prompt
-    )
-
-    assert "Total: 600.0" in (
-        llm.last_prompt
-    )
-
-    assert "Average: 200.0" in (
-        llm.last_prompt
-    )
-
-    assert "Minimum: 100.0" in (
-        llm.last_prompt
-    )
-
-    assert "Maximum: 300.0" in (
-        llm.last_prompt
-    )
-
-    assert "Dimension: region" in (
-        llm.last_prompt
-    )
-
-    assert "Top category: West" in (
-        llm.last_prompt
-    )
-
-    assert "Bottom category: East" in (
-        llm.last_prompt
-    )
+    assert "What is the total revenue?" in prompt
+    assert "Currency: INR" in prompt
+    assert "Column: revenue" in prompt
+    assert "Total: 600.0" in prompt
+    assert "Average: 200.0" in prompt
+    assert "Minimum: 100.0" in prompt
+    assert "Maximum: 300.0" in prompt
+    assert "Dimension: region" in prompt
+    assert "Top category: West" in prompt
+    assert "Bottom category: East" in prompt
 
 
 def test_answer_composer_prompt_requires_currency_from_evidence() -> None:
@@ -140,9 +119,63 @@ def test_answer_composer_prompt_requires_currency_from_evidence() -> None:
     )
 
     assert llm.last_prompt is not None
-    assert "Currency: USD" in (
+    assert "Currency: USD" in llm.last_prompt
+    assert "Never infer, convert, or substitute another currency." in (
         llm.last_prompt
     )
+
+
+def test_answer_composer_prompt_distinguishes_absolute_and_percentage_change() -> None:
+    prompt = build_prompt()
+
+    assert "An absolute change is not a percentage change." in prompt
+    assert "Do not describe a missing or unavailable percentage as zero." in (
+        prompt
+    )
+    assert "Preserve negative signs and the direction of changes." in prompt
+
+
+def test_answer_composer_prompt_defines_all_analytics_interpretations() -> None:
+    prompt = build_prompt()
+
+    expected_instructions = [
+        "TREND:",
+        "PERIOD COMPARISON:",
+        "VARIANCE:",
+        "CONTRIBUTION:",
+        "SEGMENTATION:",
+        "ROOT-CAUSE ANALYSIS:",
+    ]
+
+    for instruction in expected_instructions:
+        assert instruction in prompt
+
+
+def test_answer_composer_prompt_prevents_unsupported_causal_claims() -> None:
+    prompt = build_prompt()
+
+    assert "These results are not proof of causal relationships." in prompt
+    assert "Never state that a driver caused an outcome." in prompt
+    assert "Do not claim that a category caused the overall change." in prompt
+
+
+def test_answer_composer_prompt_handles_multiple_and_incomplete_analyses() -> None:
+    prompt = build_prompt()
+
+    assert "Consider all relevant analytics executions" in prompt
+    assert "Preserve their request IDs" in prompt
+    assert "A skipped analysis was not successfully performed." in prompt
+    assert "A fatal analytics error" in prompt
+    assert "state what is missing" in prompt
+
+
+def test_answer_composer_prompt_uses_evidence_as_the_only_source_of_truth() -> None:
+    prompt = build_prompt()
+
+    assert "using ONLY" in prompt
+    assert "Never invent figures, metrics, categories, dates" in prompt
+    assert "Do not perform new calculations" in prompt
+    assert "Visualization metadata describes a chart configuration." in prompt
 
 
 def test_answer_composer_rejects_empty_question() -> None:

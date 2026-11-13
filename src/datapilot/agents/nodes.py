@@ -490,17 +490,11 @@ def evidence_node(
             "Agent state must contain analysis."
         )
 
-    analytics_executions = (
-        analytics_execution.executions
-        if analytics_execution is not None
-        else ()
-    )
-
     evidence = EvidenceBuilder().build(
         dataframe=result,
         analysis=analysis,
         visualization=visualization,
-        analytics_executions=analytics_executions,
+        analytics_execution_result=analytics_execution,
         visualization_source=visualization_source,
         visualization_request_id=visualization_request_id,
     )
@@ -516,7 +510,7 @@ def answer_composer_node(
     state: DataPilotState,
     llm: LocalLLM,
 ) -> DataPilotState:
-    """Compose a business answer from grounded evidence."""
+    """Compose and validate a business answer from grounded evidence."""
 
     question = state.get(
         "question",
@@ -543,5 +537,6 @@ def answer_composer_node(
     return {
         **state,
         "answer": result.answer,
+        "answer_validation": result.validation,
         "status": "answer_composed",
     }

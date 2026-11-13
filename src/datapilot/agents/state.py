@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from typing import Any, TypedDict
 
+from datapilot.analytics.answer_validation import AnswerValidationResult
 from datapilot.analytics.executor import AnalyticsExecutionResult
 from datapilot.analytics.planning import (
     AnalyticsPlan,
@@ -47,7 +48,9 @@ class DataPilotState(TypedDict, total=False):
     visualization_request_id: str | None
     rendered_visualization: Any
 
+    # Final answer and its deterministic validation findings.
     answer: str
+    answer_validation: AnswerValidationResult
 
     status: str
     error: str

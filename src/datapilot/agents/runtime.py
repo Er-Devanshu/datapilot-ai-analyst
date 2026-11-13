@@ -8,6 +8,7 @@ import pandas as pd
 
 from datapilot.agents.graph import build_datapilot_graph
 from datapilot.agents.state import DataPilotState
+from datapilot.analytics.answer_validation import AnswerValidationResult
 from datapilot.analytics.evidence import Evidence
 from datapilot.analytics.executor import AnalyticsExecutionResult
 from datapilot.analytics.planner import AnalyticsPlanningResult
@@ -50,6 +51,9 @@ class AgentResponse:
     # Visualization provenance metadata.
     visualization_source: str | None = None
     visualization_request_id: str | None = None
+
+    # Deterministic validation of the generated answer.
+    answer_validation: AnswerValidationResult | None = None
 
     @classmethod
     def from_state(
@@ -99,6 +103,9 @@ class AgentResponse:
             ),
             visualization_request_id=state.get(
                 "visualization_request_id"
+            ),
+            answer_validation=state.get(
+                "answer_validation"
             ),
         )
 
@@ -191,6 +198,7 @@ class DataPilotAgent:
                 answer=None,
                 error=str(exc),
                 rendered_visualization=None,
+                answer_validation=None,
             )
 
         return AgentResponse.from_state(result)
